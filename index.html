@@ -3,38 +3,52 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>地號GPS座標查詢</title>
+  <title>地號 GPS 座標查詢</title>
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
 </head>
 <body>
-  <h1>地號 GPS 座標查詢系統</h1>
+  <div class="container">
+    <h1>地號 GPS 座標查詢系統</h1>
 
-  <h2>輸入說明</h2>
-  <p>目前API要求的地號格式，範例如下：</p>
-  <ul>
-    <li>臺北市華興段三小段141號</li>
-  </ul>
-  
-  <hr>
+    <h2>輸入說明</h2>
+    <p>目前 API 要求的地號格式，範例如下：</p>
+    <ul>
+      <li>臺北市華興段三小段141號</li>
+    </ul>
 
-  <h2>單筆查詢</h2>
-  <label for="land-id">輸入地號：</label>
-  <br>
-  <input type="text" id="land-id" placeholder="例如：臺北市華興段三小段141號">
-  <button onclick="querySingleLand()">查詢單筆中心點</button>
-  <div id="result"></div>
-  <div id="error" style="color: red; margin-top: 10px;"></div>
+    <h2>注意</h2>
+    <p>
+      由於目前開源 API 的規定，查詢時不需要撰寫例如「信義區」等行政區。此外，請確保地號以「號」結尾而不是「地號」。
+    </p>
+    <p>但這可能會導致同一縣市會有相同「段名」的土地，有重複的可能。之後會改良這部分問題。</p>
 
-  <hr>
+    <hr>
 
-  <h2>多筆查詢</h2>
-  <label for="multi-land-id">輸入多筆地號 (用逗號或換行分隔)：</label>
-  <br>
-  <textarea id="multi-land-id" placeholder="例如：臺北市華興段三小段141號, 臺北市華興段三小段142號"></textarea>
-  <button onclick="queryMultipleLands()">查詢多筆中心點</button>
-  <div id="multi-result"></div>
-  <div id="multi-error" style="color: red; margin-top: 10px;"></div>
+    <!-- 多筆查詢 -->
+    <h2>多筆查詢</h2>
+    <label for="multi-land-id">輸入地號 (用逗號或換行分隔)：</label>
+    <br>
+    <textarea id="multi-land-id" class="form-control" placeholder="例如：
+臺北市華興段三小段141號
+臺北市華興段三小段142號"></textarea>
+    <br>
+    <button class="btn btn-primary mt-2" onclick="queryMultipleLands()">查詢並顯示地圖</button>
 
+    <div id="multi-result" class="mt-3"></div>
+    <div id="multi-error" style="color: red; margin-top: 10px;"></div>
+
+    <div class="row">
+      <!-- 地圖區域 -->
+      <div class="col-md-12">
+        <h2>地圖顯示</h2>
+        <div id="map"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
   <script src="scripts.js"></script>
 </body>
 </html>
