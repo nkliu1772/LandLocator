@@ -1,10 +1,12 @@
 // 初始化 Leaflet 地圖
-var map = L.map('map').setView([25.033964, 121.564468], 14); // 預設中心點與縮放層級
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '&copy; OpenStreetMap contributors'
+var map = L.map('map').setView([25.000659102852, 121.51006510846], 14); // 台北市的預設中心點
+L.tileLayer('https://wmts.nlsc.gov.tw/wmts/EMAP5/{Style}/{TileMatrixSet}/{z}/{y}/{x}', {
+  attribution: '&copy; <a href="http://maps.nlsc.gov.tw/S09SOA/">國土測繪圖資服務雲</a> contributors',
+  Style: 'default',
+  TileMatrixSet: 'GoogleMapsCompatible',
 }).addTo(map);
 
-// 定義圖層群組，用於管理動態多邊形
+// 添加圖層群組，用於管理地圖上的多邊形
 var featureGroup = L.featureGroup().addTo(map);
 
 // 格式化地號：移除多餘的前導零，並轉換為友好格式
@@ -26,6 +28,7 @@ async function queryMultipleLands() {
   const resultDiv = document.getElementById('multi-result');
   const errorDiv = document.getElementById('multi-error');
 
+  // 清空之前的結果和錯誤訊息
   resultDiv.innerHTML = '';
   errorDiv.textContent = '';
 
@@ -37,7 +40,7 @@ async function queryMultipleLands() {
   try {
     // 分割多筆輸入，清理格式
     const landList = multiLandInput
-      .split(/[,，\n]+/)
+      .split(/[,，\n]+/) // 支援逗號或換行分隔
       .map(item => item.trim())
       .filter(Boolean);
 
@@ -76,6 +79,7 @@ async function queryMultipleLands() {
         <tbody>
     `;
 
+    // 處理每筆回應數據
     data.features.forEach(feature => {
       const properties = feature.properties;
       const xCenter = properties.xcenter.toFixed(6);
@@ -83,6 +87,7 @@ async function queryMultipleLands() {
       const latLonFormat = `${yCenter},${xCenter}`;
       const formattedLandNumber = formatLandNumber(properties["地號"]);
 
+      // 添加表格內容
       tableContent += `
         <tr>
           <td>${properties["縣市"]}</td>
@@ -101,7 +106,7 @@ async function queryMultipleLands() {
     tableContent += `</tbody></table>`;
     resultDiv.innerHTML = tableContent;
 
-    // 調整地圖視野以適應多邊形
+    // 調整地圖視野以適應所有多邊形
     map.fitBounds(featureGroup.getBounds());
   } catch (error) {
     errorDiv.textContent = `錯誤：${error.message}`;
