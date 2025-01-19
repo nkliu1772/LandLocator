@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>地號GPS座標查詢</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>地號 GPS 座標查詢系統</h1>
+
+  <h2>輸入說明</h2>
+  <p>目前API要求的地號格式，範例如下：</p>
+  <ul>
+    <li>臺北市華興段三小段141號</li>
+  </ul>
+  
+  <hr>
+
+  <h2>單筆查詢</h2>
+  <label for="land-id">輸入地號：</label>
+  <br>
+  <input type="text" id="land-id" placeholder="例如：臺北市華興段三小段141號">
+  <button onclick="querySingleLand()">查詢單筆中心點</button>
+  <div id="result"></div>
+  <div id="error" style="color: red; margin-top: 10px;"></div>
+
+  <hr>
+
+  <h2>多筆查詢</h2>
+  <label for="multi-land-id">輸入多筆地號 (用逗號或換行分隔)：</label>
+  <br>
+  <textarea id="multi-land-id" placeholder="例如：臺北市華興段三小段141號, 臺北市華興段三小段142號"></textarea>
+  <button onclick="queryMultipleLands()">查詢多筆中心點</button>
+  <div id="multi-result"></div>
+  <div id="multi-error" style="color: red; margin-top: 10px;"></div>
+
+  <script src="scripts.js"></script>
+</body>
+</html>

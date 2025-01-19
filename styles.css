@@ -1,0 +1,55 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 20px;
+    padding: 10px;
+  }
+  
+  h1 {
+    color: #333;
+  }
+  
+  input, textarea {
+    margin: 5px 0;
+    padding: 8px;
+    font-size: 16px;
+    width: 300px;
+  }
+  
+  textarea {
+    height: 100px;
+  }
+  
+  button {
+    padding: 10px 20px;
+    background-color: #007BFF;
+    color: white;
+    border: none;
+    font-size: 16px;
+    cursor: pointer;
+  }
+  
+  button:hover {
+    background-color: #0056b3;
+  }
+  
+  table {
+    margin-top: 20px;
+    border-collapse: collapse;
+    width: 100%;
+  }
+  
+  th, td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+  }
+  
+  th {
+    background-color: #f2f2f2;
+  }
+  
+  #error, #multi-error {
+    color: red;
+    margin-top: 10px;
+  }
+  
