@@ -4,7 +4,10 @@ L.tileLayer('https://wmts.nlsc.gov.tw/wmts/EMAP5/{Style}/{TileMatrixSet}/{z}/{y}
   attribution: '&copy; <a href="http://maps.nlsc.gov.tw/S09SOA/">國土測繪圖資服務雲</a> contributors',
   Style: 'default',
   TileMatrixSet: 'GoogleMapsCompatible',
+  maxNativeZoom: 20, // 圖資的原始最大縮放層級
+  maxZoom: 20        // 地圖可以達到的最大縮放層級
 }).addTo(map);
+
 
 // 添加圖層群組，用於管理地圖上的多邊形
 var featureGroup = L.featureGroup().addTo(map);
@@ -65,18 +68,19 @@ async function queryMultipleLands() {
     // 清空地圖上的圖層
     featureGroup.clearLayers();
 
+    // 多筆查詢結果表格
     let tableContent = `
-      <table class="table table-bordered">
-        <thead>
-          <tr>
-            <th>縣市</th>
-            <th>鄉鎮</th>
-            <th>地段</th>
-            <th>地號</th>
-            <th>經緯度座標</th>
-          </tr>
-        </thead>
-        <tbody>
+    <table class="table table-bordered">
+      <thead>
+        <tr>
+          <th>縣市</th>
+          <th>鄉鎮</th>
+          <th>地段</th>
+          <th>地號</th>
+          <th>經緯度座標</th>
+        </tr>
+      </thead>
+      <tbody>
     `;
 
     // 處理每筆回應數據
@@ -85,6 +89,7 @@ async function queryMultipleLands() {
       const xCenter = properties.xcenter.toFixed(6);
       const yCenter = properties.ycenter.toFixed(6);
       const latLonFormat = `${yCenter},${xCenter}`;
+      const googleMapsLink = `https://www.google.com/maps/place/${latLonFormat}`;
       const formattedLandNumber = formatLandNumber(properties["地號"]);
 
       // 添加表格內容
@@ -94,7 +99,7 @@ async function queryMultipleLands() {
           <td>${properties["鄉鎮"]}</td>
           <td>${properties["地段"]}</td>
           <td>${formattedLandNumber}</td>
-          <td>${latLonFormat}</td>
+          <td><a href="${googleMapsLink}" target="_blank">${latLonFormat}</a></td>
         </tr>
       `;
 
