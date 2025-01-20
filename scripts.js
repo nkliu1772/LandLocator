@@ -1,13 +1,12 @@
 // 初始化 Leaflet 地圖
-var map = L.map('map').setView([25.000659102852, 121.51006510846], 14); // 台北市的預設中心點
+var map = L.map('map').setView([25.000659102852, 121.51006510846], 14);
 L.tileLayer('https://wmts.nlsc.gov.tw/wmts/EMAP5/{Style}/{TileMatrixSet}/{z}/{y}/{x}', {
   attribution: '&copy; <a href="http://maps.nlsc.gov.tw/S09SOA/">國土測繪圖資服務雲</a> contributors',
   Style: 'default',
   TileMatrixSet: 'GoogleMapsCompatible',
-  maxNativeZoom: 20, // 圖資的原始最大縮放層級
-  maxZoom: 20        // 地圖可以達到的最大縮放層級
+  maxNativeZoom: 20,
+  maxZoom: 20
 }).addTo(map);
-
 
 // 添加圖層群組，用於管理地圖上的多邊形
 var featureGroup = L.featureGroup().addTo(map);
@@ -73,6 +72,7 @@ async function queryMultipleLands() {
     <table class="table table-bordered">
       <thead>
         <tr>
+          <th>編號</th>
           <th>縣市</th>
           <th>鄉鎮</th>
           <th>地段</th>
@@ -84,7 +84,7 @@ async function queryMultipleLands() {
     `;
 
     // 處理每筆回應數據
-    data.features.forEach(feature => {
+    data.features.forEach((feature, index) => {
       const properties = feature.properties;
       const xCenter = properties.xcenter.toFixed(6);
       const yCenter = properties.ycenter.toFixed(6);
@@ -92,9 +92,10 @@ async function queryMultipleLands() {
       const googleMapsLink = `https://www.google.com/maps/place/${latLonFormat}`;
       const formattedLandNumber = formatLandNumber(properties["地號"]);
 
-      // 添加表格內容
+      // 添加表格內容（包含流水號）
       tableContent += `
         <tr>
+          <td>${index + 1}</td> <!-- 流水號 -->
           <td>${properties["縣市"]}</td>
           <td>${properties["鄉鎮"]}</td>
           <td>${properties["地段"]}</td>
@@ -106,12 +107,22 @@ async function queryMultipleLands() {
       // 在地圖上繪製多邊形
       const geoJsonLayer = L.geoJSON(feature);
       featureGroup.addLayer(geoJsonLayer);
+
+      // 在地圖中心點添加標記，並顯示編號
+      const markerIcon = L.divIcon({
+        className: 'custom-marker', // 自訂樣式
+        html: `<div style="background-color: #007BFF; color: white; border-radius: 50%; width: 30px; height: 30px; line-height: 30px; text-align: center; font-size: 14px;">${index + 1}</div>`,
+        iconSize: [30, 30],
+        iconAnchor: [15, 15]
+      });
+
+      const marker = L.marker([yCenter, xCenter], { icon: markerIcon }).addTo(map);
     });
 
     tableContent += `</tbody></table>`;
     resultDiv.innerHTML = tableContent;
 
-    // 調整地圖視野以適應所有多邊形
+    // 調整地圖視野以適應所有多邊形和標記
     map.fitBounds(featureGroup.getBounds());
   } catch (error) {
     errorDiv.textContent = `錯誤：${error.message}`;
