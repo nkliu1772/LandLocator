@@ -8,8 +8,9 @@ L.tileLayer('https://wmts.nlsc.gov.tw/wmts/EMAP5/{Style}/{TileMatrixSet}/{z}/{y}
   maxZoom: 20
 }).addTo(map);
 
-// 添加圖層群組，用於管理地圖上的多邊形
+// 添加圖層群組，用於管理地圖上的多邊形和標記
 var featureGroup = L.featureGroup().addTo(map);
+var markerGroup = L.featureGroup().addTo(map);
 
 // 格式化地號：移除多餘的前導零，並轉換為友好格式
 function formatLandNumber(landNumber) {
@@ -66,6 +67,7 @@ async function queryMultipleLands() {
 
     // 清空地圖上的圖層
     featureGroup.clearLayers();
+    markerGroup.clearLayers();
 
     // 多筆查詢結果表格
     let tableContent = `
@@ -92,10 +94,10 @@ async function queryMultipleLands() {
       const googleMapsLink = `https://www.google.com/maps/place/${latLonFormat}`;
       const formattedLandNumber = formatLandNumber(properties["地號"]);
 
-      // 添加表格內容（包含流水號）
+      // 表格內容（流水號和超連結）
       tableContent += `
         <tr>
-          <td>${index + 1}</td> <!-- 流水號 -->
+          <td>${index === 0 ? "勘估標的" : `比較標的${index}`}</td>
           <td>${properties["縣市"]}</td>
           <td>${properties["鄉鎮"]}</td>
           <td>${properties["地段"]}</td>
@@ -104,19 +106,22 @@ async function queryMultipleLands() {
         </tr>
       `;
 
+      // 在地圖上添加標記
+      const markerText = index === 0 ? "勘估標的" : `比較標的${index}`;
+      const markerColor = index === 0 ? "red" : "#007BFF";
+
+      const markerIcon = L.divIcon({
+        className: 'custom-marker',
+        html: `<div style="background-color: ${markerColor}; color: white; border-radius: 10px; padding: 5px 10px; text-align: center; font-size: 14px;">${markerText}</div>`,
+        iconSize: [100, 30],
+        iconAnchor: [50, 15]
+      });
+
+      L.marker([yCenter, xCenter], { icon: markerIcon }).addTo(markerGroup);
+
       // 在地圖上繪製多邊形
       const geoJsonLayer = L.geoJSON(feature);
       featureGroup.addLayer(geoJsonLayer);
-
-      // 在地圖中心點添加標記，並顯示編號
-      const markerIcon = L.divIcon({
-        className: 'custom-marker', // 自訂樣式
-        html: `<div style="background-color: #007BFF; color: white; border-radius: 50%; width: 30px; height: 30px; line-height: 30px; text-align: center; font-size: 14px;">${index + 1}</div>`,
-        iconSize: [30, 30],
-        iconAnchor: [15, 15]
-      });
-
-      const marker = L.marker([yCenter, xCenter], { icon: markerIcon }).addTo(map);
     });
 
     tableContent += `</tbody></table>`;
@@ -127,5 +132,23 @@ async function queryMultipleLands() {
   } catch (error) {
     errorDiv.textContent = `錯誤：${error.message}`;
     console.error('API 錯誤:', error);
+  }
+}
+
+// 顯示/隱藏地圖上的說明文字
+function toggleMarkers() {
+  if (map.hasLayer(markerGroup)) {
+    map.removeLayer(markerGroup);
+  } else {
+    map.addLayer(markerGroup);
+  }
+}
+
+// 顯示/隱藏地圖上的圖形框框
+function toggleShapes() {
+  if (map.hasLayer(featureGroup)) {
+    map.removeLayer(featureGroup);
+  } else {
+    map.addLayer(featureGroup);
   }
 }
