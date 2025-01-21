@@ -55,7 +55,7 @@ body {
   
   /* 設定地圖容器的高度 */
   #map {
-    height: 400px; /* 固定高度，可根據需求調整 */
+    height: calc(100vh - 150px); /* 固定高度，可根據需求調整 */
     width: 100%;   /* 滿寬 */
     border: 1px solid #ddd; /* 可選：加上邊框 */
     margin-top: 20px; /* 與其他內容分隔 */
