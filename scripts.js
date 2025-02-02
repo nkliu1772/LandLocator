@@ -1,4 +1,11 @@
-// 初始化 Leaflet 地圖
+// ------------------------------
+// 全域變數
+// ------------------------------
+var showMarkerText = true;  // 預設預設 marker 的文字顯示狀態
+
+// ------------------------------
+// 初始化地圖
+// ------------------------------
 var map = L.map('map').setView([25.000659102852, 121.51006510846], 14);
 L.tileLayer('https://wmts.nlsc.gov.tw/wmts/EMAP5/{Style}/{TileMatrixSet}/{z}/{y}/{x}', {
   attribution: '&copy; <a href="http://maps.nlsc.gov.tw/S09SOA/">國土測繪圖資服務雲</a> contributors',
@@ -8,84 +15,267 @@ L.tileLayer('https://wmts.nlsc.gov.tw/wmts/EMAP5/{Style}/{TileMatrixSet}/{z}/{y}
   maxZoom: 20
 }).addTo(map);
 
-// 添加圖層群組，用於管理地圖上的多邊形和標記
-var featureGroup = L.featureGroup().addTo(map);
-var markerGroup = L.featureGroup().addTo(map);
+// ------------------------------
+// 建立分組：第一個標的與比較標的的 Marker 與形狀
+// ------------------------------
+var firstMarkerGroup = L.layerGroup().addTo(map);
+var otherMarkerGroup = L.layerGroup().addTo(map);
+var firstShapeGroup = L.layerGroup().addTo(map);
+var otherShapeGroup = L.layerGroup().addTo(map);
 
-// 格式化地號：移除多餘的前導零，並轉換為友好格式
+// ------------------------------
+// 格式化地號
+// ------------------------------
 function formatLandNumber(landNumber) {
   const landStr = landNumber.toString().padStart(8, '0');
-  const motherNumber = parseInt(landStr.slice(0, 4), 10); // 母號
-  const childNumber = parseInt(landStr.slice(4), 10); // 子號
+  const motherNumber = parseInt(landStr.slice(0, 4), 10);
+  const childNumber = parseInt(landStr.slice(4), 10);
+  return childNumber === 0 ? `${motherNumber}` : `${motherNumber}-${childNumber}`;
+}
 
-  if (childNumber === 0) {
-    return `${motherNumber}`; // 沒有子號
+// ------------------------------
+// 背景色選項設定函式
+// ------------------------------
+function setMarkerBg(prefix, color) {
+  document.getElementById(prefix + "-bg").value = color;
+  var options = document.querySelectorAll("#" + prefix + "-bg-options .color-option");
+  options.forEach(function(el) {
+    el.style.border = (el.getAttribute("data-color") === color) ? "2px solid #000" : "2px solid transparent";
+  });
+}
+
+// ------------------------------
+// Marker 設定控制面板（浮動面板）
+// ------------------------------
+var MarkerSettingsControl = L.Control.extend({
+  options: { position: 'topright' },
+  onAdd: function(map) {
+    var container = L.DomUtil.create('div', 'leaflet-bar leaflet-control marker-settings-control');
+    container.style.background = 'white';
+    container.style.padding = '10px';
+    container.style.maxWidth = '220px';
+    container.style.fontSize = '14px';
+    container.style.boxShadow = '0 1px 5px rgba(0,0,0,0.65)';
+    container.innerHTML = `
+      <div style="text-align:right; margin-bottom:5px;">
+        <button id="marker-settings-close" style="border:none; background:none; cursor:pointer; color: black;">X</button>
+      </div>
+      <div>
+        <h4 style="margin:0 0 5px 0;">第一個標的</h4>
+        Marker 文字: <input type="text" id="marker1-text" value="勘估標的" style="width:100%; margin-bottom:5px;" /><br>
+        背景:
+        <div id="marker1-bg-options" style="margin-bottom:5px;">
+          <span class="color-option" data-color="red" onclick="setMarkerBg('marker1','red')" style="display:inline-block; width:20px; height:20px; background:red; margin-right:5px; border:2px solid #000; cursor:pointer;"></span>
+          <span class="color-option" data-color="blue" onclick="setMarkerBg('marker1','blue')" style="display:inline-block; width:20px; height:20px; background:blue; margin-right:5px; border:2px solid transparent; cursor:pointer;"></span>
+          <span class="color-option" data-color="green" onclick="setMarkerBg('marker1','green')" style="display:inline-block; width:20px; height:20px; background:green; margin-right:5px; border:2px solid transparent; cursor:pointer;"></span>
+          <span class="color-option" data-color="orange" onclick="setMarkerBg('marker1','orange')" style="display:inline-block; width:20px; height:20px; background:orange; margin-right:5px; border:2px solid transparent; cursor:pointer;"></span>
+          <span class="color-option" data-color="yellow" onclick="setMarkerBg('marker1','yellow')" style="display:inline-block; width:20px; height:20px; background:yellow; margin-right:5px; border:2px solid transparent; cursor:pointer;"></span>
+        </div>
+        <input type="hidden" id="marker1-bg" value="red" />
+        Marker 類型:
+        <div>
+          <label style="margin-right:5px;"><input type="radio" name="marker1-type" value="custom" checked> 自訂圖示</label>
+          <label><input type="radio" name="marker1-type" value="default"> 預設 marker</label>
+        </div>
+      </div>
+      <hr style="margin:8px 0;">
+      <div>
+        <h4 style="margin:0 0 5px 0;">比較標的</h4>
+        Marker 文字: <input type="text" id="marker2-text" value="比較標的" style="width:100%; margin-bottom:5px;" /><br>
+        背景:
+        <div id="marker2-bg-options" style="margin-bottom:5px;">
+          <span class="color-option" data-color="blue" onclick="setMarkerBg('marker2','blue')" style="display:inline-block; width:20px; height:20px; background:blue; margin-right:5px; border:2px solid #000; cursor:pointer;"></span>
+          <span class="color-option" data-color="red" onclick="setMarkerBg('marker2','red')" style="display:inline-block; width:20px; height:20px; background:red; margin-right:5px; border:2px solid transparent; cursor:pointer;"></span>
+          <span class="color-option" data-color="green" onclick="setMarkerBg('marker2','green')" style="display:inline-block; width:20px; height:20px; background:green; margin-right:5px; border:2px solid transparent; cursor:pointer;"></span>
+          <span class="color-option" data-color="orange" onclick="setMarkerBg('marker2','orange')" style="display:inline-block; width:20px; height:20px; background:orange; margin-right:5px; border:2px solid transparent; cursor:pointer;"></span>
+          <span class="color-option" data-color="yellow" onclick="setMarkerBg('marker2','yellow')" style="display:inline-block; width:20px; height:20px; background:yellow; margin-right:5px; border:2px solid transparent; cursor:pointer;"></span>
+        </div>
+        <input type="hidden" id="marker2-bg" value="blue" />
+        Marker 類型:
+        <div>
+          <label style="margin-right:5px;"><input type="radio" name="marker2-type" value="custom" checked> 自訂圖示</label>
+          <label><input type="radio" name="marker2-type" value="default"> 預設 marker</label>
+        </div>
+        起始數字: <input type="number" id="marker2-start" value="1" style="width:100%; margin-top:5px;"/>
+      </div>
+      <button id="marker-settings-submit" style="width:100%; margin-top:5px; padding:6px 12px; font-size:0.9rem;">送出設定</button>
+    `;
+    setTimeout(function(){
+      var closeBtn = document.getElementById('marker-settings-close');
+      closeBtn.addEventListener('click', function(){ container.style.display = 'none'; });
+    }, 0);
+    setTimeout(function(){
+      var submitBtn = document.getElementById('marker-settings-submit');
+      submitBtn.addEventListener('click', function(){ updateMarkers(); });
+    }, 0);
+    window.markerSettingsControlContainer = container;
+    L.DomEvent.disableClickPropagation(container);
+    return container;
+  }
+});
+map.addControl(new MarkerSettingsControl());
+
+// ------------------------------
+// 切換控制面板按鈕（位於地圖左下角）
+// ------------------------------
+var MarkerSettingsToggleControl = L.Control.extend({
+  options: { position: 'bottomleft' },
+  onAdd: function(map) {
+    var container = L.DomUtil.create('div', 'leaflet-bar leaflet-control marker-settings-toggle');
+    container.style.background = 'white';
+    container.style.padding = '5px';
+    container.style.cursor = 'pointer';
+    container.style.boxShadow = '0 1px 5px rgba(0,0,0,0.65)';
+    container.innerHTML = 'Marker 設定';
+    container.onclick = function() {
+      var panel = window.markerSettingsControlContainer;
+      if (panel) { panel.style.display = (panel.style.display === 'none' || panel.style.display === '') ? 'block' : 'none'; }
+    };
+    return container;
+  }
+});
+map.addControl(new MarkerSettingsToggleControl());
+
+// ------------------------------
+// 建立 Marker（第一個與比較標的）
+// ------------------------------
+function createCustomMarker(lat, lng, defaultText, groupType, markerCounter) {
+  let text, bgColor, markerType;
+  if (groupType === 'first') {
+    text = document.getElementById('marker1-text').value;
+    if(text.trim() === "") { text = defaultText; }
+    bgColor = document.getElementById('marker1-bg').value;
+    markerType = document.querySelector('input[name="marker1-type"]:checked').value;
   } else {
-    return `${motherNumber}-${childNumber}`; // 顯示母號-子號
+    let baseText = document.getElementById('marker2-text').value;
+    markerType = document.querySelector('input[name="marker2-type"]:checked').value;
+    bgColor = document.getElementById('marker2-bg').value;
+    if(baseText.trim() === "") { text = String(markerCounter); }
+    else { text = baseText + markerCounter; }
+  }
+  
+  if(markerType === "custom") {
+    let textColor = (bgColor === 'orange' || bgColor === 'yellow') ? 'black' : 'white';
+    const options = { draggable: true };
+    const markerIcon = L.divIcon({
+      className: 'custom-marker',
+      html: `<div style="background-color: ${bgColor}; color: ${textColor}; border-radius: 10px; padding: 5px 10px; text-align: center; font-size: 14px;">${text}</div>`,
+      iconSize: [100, 30],
+      iconAnchor: [50, 15]
+    });
+    options.icon = markerIcon;
+    let marker = L.marker([lat, lng], options);
+    marker.groupType = groupType;
+    if(groupType === 'other') { marker.markerCounter = markerCounter; }
+    return marker;
+  } else if(markerType === "default") {
+    var color = bgColor;
+    var iconUrl;
+    switch(color) {
+      case 'red': iconUrl = 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png'; break;
+      case 'blue': iconUrl = 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png'; break;
+      case 'green': iconUrl = 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png'; break;
+      case 'orange': iconUrl = 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-orange.png'; break;
+      case 'yellow': iconUrl = 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-yellow.png'; break;
+      default: iconUrl = 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png';
+    }
+    var defaultIcon = L.icon({
+      iconUrl: iconUrl,
+      shadowUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-shadow.png',
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34],
+      tooltipAnchor: [12, -28],
+      shadowSize: [41, 41]
+    });
+    const options = { draggable: true, icon: defaultIcon };
+    let marker = L.marker([lat, lng], options);
+    if(showMarkerText && text.trim() !== "") {
+      marker.bindTooltip(text, { permanent: true, direction: 'top', offset: [0, -5], className: 'default-marker-tooltip' });
+    } else {
+      marker.unbindTooltip();
+    }
+    marker.groupType = groupType;
+    if(groupType === 'other') { marker.markerCounter = markerCounter; }
+    return marker;
   }
 }
 
-// 多筆查詢
+// ------------------------------
+// 更新 Marker（送出設定時觸發）
+// ------------------------------
+function updateMarkers() {
+  firstMarkerGroup.eachLayer(function(marker) {
+    var latlng = marker.getLatLng();
+    var newMarker = createCustomMarker(latlng.lat, latlng.lng, "勘估標的", "first");
+    if(newMarker.options.icon) { marker.setIcon(newMarker.options.icon); }
+    if(document.querySelector('input[name="marker1-type"]:checked').value === "default") {
+      marker.unbindTooltip();
+      if(showMarkerText) {
+        marker.bindTooltip(document.getElementById('marker1-text').value || "勘估標的", { permanent: true, direction: 'top', offset: [0, -5], className: 'default-marker-tooltip' });
+      }
+    }
+  });
+  let newStart = parseInt(document.getElementById('marker2-start').value) || 1;
+  let counter = newStart;
+  otherMarkerGroup.eachLayer(function(marker) {
+    marker.markerCounter = counter;
+    var latlng = marker.getLatLng();
+    var newMarker = createCustomMarker(latlng.lat, latlng.lng, "比較標的", "other", counter);
+    if(newMarker.options.icon) { marker.setIcon(newMarker.options.icon); }
+    if(document.querySelector('input[name="marker2-type"]:checked').value === "default") {
+      marker.unbindTooltip();
+      if(showMarkerText) {
+        let baseText = document.getElementById('marker2-text').value;
+        let tooltipText = (baseText.trim() === "" ? String(counter) : baseText + counter);
+        marker.bindTooltip(tooltipText, { permanent: true, direction: 'top', offset: [0, -5], className: 'default-marker-tooltip' });
+      }
+    }
+    counter++;
+  });
+}
+
+// ------------------------------
+// 查詢並顯示結果
+// ------------------------------
 async function queryMultipleLands() {
   const multiLandInput = document.getElementById('multi-land-id').value;
-  const resultDiv = document.getElementById('multi-result');
   const errorDiv = document.getElementById('multi-error');
-
-  // 清空之前的結果和錯誤訊息
-  resultDiv.innerHTML = '';
+  let resultHTML = '';
   errorDiv.textContent = '';
-
   if (!multiLandInput) {
     errorDiv.textContent = '請輸入至少一筆地號！';
     return;
   }
-
   try {
-    // 分割多筆輸入，清理格式
-    const landList = multiLandInput
-      .split(/[,，\n]+/) // 支援逗號或換行分隔
-      .map(item => item.trim())
-      .filter(Boolean);
-
-    if (landList.length === 0) {
-      throw new Error('輸入格式錯誤，請確認地號是否正確。');
-    }
-
-    // 組合 API 查詢參數
-    const apiUrl = `https://twland.ronny.tw/index/search?${landList
-      .map(land => `lands[]=${encodeURIComponent(land)}`)
-      .join('&')}`;
-
+    const landList = multiLandInput.split(/[,，\n]+/).map(item => item.trim()).filter(Boolean);
+    if (landList.length === 0) { throw new Error('輸入格式錯誤，請確認地號是否正確。'); }
+    const apiUrl = `https://twland.ronny.tw/index/search?${landList.map(land => `lands[]=${encodeURIComponent(land)}`).join('&')}`;
     const response = await fetch(apiUrl);
     if (!response.ok) throw new Error(`API 請求失敗：${response.status}`);
-
     const data = await response.json();
-
-    if (data.notfound.length > 0) {
-      throw new Error(`以下地號查無資料：${data.notfound.join(', ')}`);
-    }
-
-    // 清空地圖上的圖層
-    featureGroup.clearLayers();
-    markerGroup.clearLayers();
-
-    // 多筆查詢結果表格
+    if (data.notfound.length > 0) { throw new Error(`以下地號查無資料：${data.notfound.join(', ')}`); }
+    
+    firstMarkerGroup.clearLayers();
+    otherMarkerGroup.clearLayers();
+    firstShapeGroup.clearLayers();
+    otherShapeGroup.clearLayers();
+    
     let tableContent = `
-    <table class="table table-bordered">
-      <thead>
-        <tr>
-          <th>編號</th>
-          <th>縣市</th>
-          <th>鄉鎮</th>
-          <th>地段</th>
-          <th>地號</th>
-          <th>經緯度座標</th>
-        </tr>
-      </thead>
-      <tbody>
+      <table class="table table-bordered">
+        <thead>
+          <tr>
+            <th>編號</th>
+            <th>縣市</th>
+            <th>鄉鎮</th>
+            <th>地段</th>
+            <th>地號</th>
+            <th>經緯度座標</th>
+          </tr>
+        </thead>
+        <tbody>
     `;
-
-    // 處理每筆回應數據
+    var markerOtherCounter = parseInt(document.getElementById('marker2-start').value) || 1;
     data.features.forEach((feature, index) => {
       const properties = feature.properties;
       const xCenter = properties.xcenter.toFixed(6);
@@ -93,11 +283,9 @@ async function queryMultipleLands() {
       const latLonFormat = `${yCenter},${xCenter}`;
       const googleMapsLink = `https://www.google.com/maps/place/${latLonFormat}`;
       const formattedLandNumber = formatLandNumber(properties["地號"]);
-
-      // 表格內容（流水號和超連結）
       tableContent += `
         <tr>
-          <td>${index === 0 ? "勘估標的" : `比較標的${index}`}</td>
+          <td>${index === 0 ? "勘估標的" : (document.getElementById('marker2-text').value.trim() === "" ? markerOtherCounter : document.getElementById('marker2-text').value + markerOtherCounter)}</td>
           <td>${properties["縣市"]}</td>
           <td>${properties["鄉鎮"]}</td>
           <td>${properties["地段"]}</td>
@@ -105,50 +293,102 @@ async function queryMultipleLands() {
           <td><a href="${googleMapsLink}" target="_blank">${latLonFormat}</a></td>
         </tr>
       `;
-
-      // 在地圖上添加標記
-      const markerText = index === 0 ? "勘估標的" : `比較標的${index}`;
-      const markerColor = index === 0 ? "red" : "#007BFF";
-
-      const markerIcon = L.divIcon({
-        className: 'custom-marker',
-        html: `<div style="background-color: ${markerColor}; color: white; border-radius: 10px; padding: 5px 10px; text-align: center; font-size: 14px;">${markerText}</div>`,
-        iconSize: [100, 30],
-        iconAnchor: [50, 15]
+      let marker;
+      if (index === 0) {
+        marker = createCustomMarker(yCenter, xCenter, "勘估標的", "first");
+        firstMarkerGroup.addLayer(marker);
+        let geoJsonLayer = L.geoJSON(feature);
+        firstShapeGroup.addLayer(geoJsonLayer);
+      } else {
+        marker = createCustomMarker(yCenter, xCenter, "比較標的", "other", markerOtherCounter);
+        markerOtherCounter++;
+        otherMarkerGroup.addLayer(marker);
+        let geoJsonLayer = L.geoJSON(feature);
+        otherShapeGroup.addLayer(geoJsonLayer);
+      }
+      marker.on('dragend', function(e) {
+        const newPos = e.target.getLatLng();
+        console.log(`Marker 新位置：${newPos.lat}, ${newPos.lng}`);
       });
-
-      L.marker([yCenter, xCenter], { icon: markerIcon }).addTo(markerGroup);
-
-      // 在地圖上繪製多邊形
-      const geoJsonLayer = L.geoJSON(feature);
-      featureGroup.addLayer(geoJsonLayer);
     });
-
     tableContent += `</tbody></table>`;
-    resultDiv.innerHTML = tableContent;
-
-    // 調整地圖視野以適應所有多邊形和標記
-    map.fitBounds(featureGroup.getBounds());
+    
+    // 如果結果超過 4 筆，預設折疊表格，以旋轉三角形作為 toggle
+    let resultArea = document.getElementById('resultArea');
+    const rowCount = (new DOMParser().parseFromString(tableContent, 'text/html')).querySelectorAll('tbody tr').length;
+    if(rowCount > 4) {
+      resultArea.innerHTML = `<div id="toggleTable" class="collapsed"><div class="triangle"></div><span>顯示表格</span></div>
+      <div id="resultTableContainer" style="display:none;">${tableContent}</div>`;
+      document.getElementById('toggleTable').addEventListener('click', function(){
+        let container = document.getElementById('resultTableContainer');
+        if(container.style.display === 'none') {
+          container.style.display = 'block';
+          this.classList.remove('collapsed');
+          this.querySelector('span').textContent = '收合表格';
+        } else {
+          container.style.display = 'none';
+          this.classList.add('collapsed');
+          this.querySelector('span').textContent = '顯示表格';
+        }
+      });
+    } else {
+      resultArea.innerHTML = `<div id="resultTableContainer">${tableContent}</div>`;
+    }
+    
+    var bounds = L.latLngBounds([]);
+    firstShapeGroup.eachLayer(function(layer){ bounds.extend(layer.getBounds()); });
+    otherShapeGroup.eachLayer(function(layer){ bounds.extend(layer.getBounds()); });
+    map.fitBounds(bounds);
   } catch (error) {
-    errorDiv.textContent = `錯誤：${error.message}`;
-    console.error('API 錯誤:', error);
+    document.getElementById('multi-error').textContent = `錯誤：${error.message}`;
+    console.error('API 請求錯誤:', error);
   }
 }
 
-// 顯示/隱藏地圖上的說明文字
+// ------------------------------
+// 切換按鈕
+// ------------------------------
 function toggleMarkers() {
-  if (map.hasLayer(markerGroup)) {
-    map.removeLayer(markerGroup);
+  if (map.hasLayer(firstMarkerGroup) && map.hasLayer(otherMarkerGroup)) {
+    map.removeLayer(firstMarkerGroup);
+    map.removeLayer(otherMarkerGroup);
   } else {
-    map.addLayer(markerGroup);
+    map.addLayer(firstMarkerGroup);
+    map.addLayer(otherMarkerGroup);
   }
+}
+function toggleShapes() {
+  if (map.hasLayer(firstShapeGroup) && map.hasLayer(otherShapeGroup)) {
+    map.removeLayer(firstShapeGroup);
+    map.removeLayer(otherShapeGroup);
+  } else {
+    map.addLayer(firstShapeGroup);
+    map.addLayer(otherShapeGroup);
+  }
+}
+function toggleFirstMarker() {
+  if (map.hasLayer(firstMarkerGroup)) {
+    map.removeLayer(firstMarkerGroup);
+    map.removeLayer(firstShapeGroup);
+  } else {
+    map.addLayer(firstMarkerGroup);
+    map.addLayer(firstShapeGroup);
+  }
+}
+function toggleMarkerText() {
+  showMarkerText = !showMarkerText;
+  updateMarkers();
 }
 
-// 顯示/隱藏地圖上的圖形框框
-function toggleShapes() {
-  if (map.hasLayer(featureGroup)) {
-    map.removeLayer(featureGroup);
-  } else {
-    map.addLayer(featureGroup);
-  }
-}
+// ------------------------------
+// 說明彈窗功能
+// ------------------------------
+document.getElementById('showExplanationBtn').addEventListener('click', function(){
+  document.getElementById('explanationModal').style.display = 'block';
+});
+document.getElementById('closeExplanationBtn').addEventListener('click', function(){
+  document.getElementById('explanationModal').style.display = 'none';
+});
+document.getElementById('explanationModal').addEventListener('click', function(e){
+  if(e.target === this) { this.style.display = 'none'; }
+});
