@@ -234,6 +234,24 @@ function updateMarkers() {
     counter++;
   });
 }
+// 格式化地號，移除「地號」關鍵字，改為「號」，並將台灣地名標準化
+function formatLandInput(input) {
+  const replacements = {
+    "台北": "臺北",
+    "台中": "臺中",
+    "台南": "臺南",
+    "台東": "臺東"
+  };
+
+  // 替換台灣地名
+  Object.keys(replacements).forEach(key => {
+    input = input.replace(new RegExp(key, 'g'), replacements[key]);
+  });
+
+  // 替換地號格式
+  return input.replace(/地號$/, '號').trim();
+}
+
 
 // ------------------------------
 // 查詢並顯示結果
