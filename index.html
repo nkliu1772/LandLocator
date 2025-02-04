@@ -1,10 +1,11 @@
+
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>HRE 地號座標查詢系統</title>
-  <meta name="version" content="1.1.3">
+  <meta name="version" content="1.1.0">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
   <style>
     /* MUJI 風格簡約配色 */
@@ -134,24 +135,30 @@
       <button id="showExplanationBtn">說明</button>
     </div>
     
-    <!-- 說明彈窗 -->
-    <div id="explanationModal">
-      <div class="modal-content">
-        <button class="close-btn" id="closeExplanationBtn">X</button>
-        <h2>輸入說明</h2>
-        <p>目前 API 要求的地號格式，範例如下：</p>
-        <p>臺北市信義段三小段13號, 臺北市信義段三小段25號, 臺北市信義段三小段39號</p>
-        <h2>注意</h2>
-        <p>查詢時不需要撰寫例如「信義區」等行政區，並請確保地號以「號」結尾而不是「地號」。</p>
-        <p>但這可能會導致同一縣市會有相同「段名」的土地，有重複的可能，之後會改良此部分問題。</p>
-      </div>
-    </div>
+<!-- 說明彈窗 -->
+<div id="explanationModal">
+  <div class="modal-content">
+    <button class="close-btn" id="closeExplanationBtn">X</button>
+    <h2>輸入說明</h2>
+    <p>目前 API 支援的地號格式範例如下：</p>
+    <ul>
+      <li>臺北市信義段三小段13地號, 臺北市信義段三小段25地號, 臺北市信義段三小段39地號, 臺北市信義段三小段49地號, 臺北市信義段一小段1地號</li>
+    </ul>
+    <h2>注意</h2>
+    <ul>
+      <li>輸入時可包含「地號」關鍵字，系統會自動轉換成 API 支援的格式。</li>
+      <li>查詢時不需撰寫例如「信義區」等行政區名稱。</li>
+      <li>請注意，可能會因同一縣市有相同「段名」的土地而產生重複結果。</li>
+    </ul>
+  </div>
+</div>
+
     
     <!-- 多筆查詢區塊 -->
     <h2>多筆查詢</h2>
     <label for="multi-land-id">輸入地號 (用逗號或換行分隔)：</label>
     <br>
-    <textarea id="multi-land-id"></textarea>
+    <textarea id="multi-land-id" placeholder="例如：臺北市信義段三小段13地號, 臺北市信義段三小段25地號, 臺北市信義段三小段39地號, 臺北市信義段三小段49地號"></textarea>
     <br>
     <button onclick="queryMultipleLands()">查詢並顯示地圖</button>
     <div id="multi-error" style="color: red; margin-top: 10px;"></div>

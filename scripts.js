@@ -261,24 +261,51 @@ async function queryMultipleLands() {
   const errorDiv = document.getElementById('multi-error');
   let resultHTML = '';
   errorDiv.textContent = '';
+
   if (!multiLandInput) {
     errorDiv.textContent = '請輸入至少一筆地號！';
     return;
   }
+
   try {
-    const landList = multiLandInput.split(/[,，\n]+/).map(item => item.trim()).filter(Boolean);
-    if (landList.length === 0) { throw new Error('輸入格式錯誤，請確認地號是否正確。'); }
-    const apiUrl = `https://twland.ronny.tw/index/search?${landList.map(land => `lands[]=${encodeURIComponent(land)}`).join('&')}`;
+    // 處理地號，轉換「地號」為「號」
+    const landList = multiLandInput
+      .split(/[,，\n]+/) // 支援逗號或換行分隔
+      .map(item => formatLandInput(item.trim())) // 自動轉換地號格式
+      .filter(Boolean);
+    
+    if (landList.length === 0) { 
+      throw new Error('輸入格式錯誤，請確認地號是否正確。'); 
+    }
+
+    const apiUrl = `https://twland.ronny.tw/index/search?${landList
+      .map(land => `lands[]=${encodeURIComponent(land)}`)
+      .join('&')}`;
+
+    console.log("發送 API 查詢：", apiUrl); // ✅ Debug: 檢查發送的 URL
+
     const response = await fetch(apiUrl);
     if (!response.ok) throw new Error(`API 請求失敗：${response.status}`);
+
     const data = await response.json();
-    if (data.notfound.length > 0) { throw new Error(`以下地號查無資料：${data.notfound.join(', ')}`); }
+
+    if (data.notfound.length > 0) { 
+      const notFoundList = data.notfound.map(obj => obj.query).filter(Boolean);
+      if (notFoundList.length > 0) {
+        throw new Error(`以下地號查無資料：${notFoundList.join(', ')}`);
+      } else {
+        throw new Error(`查無資料，請檢查輸入格式`);
+      }
+    }
     
+
+    // 清空地圖上的圖層
     firstMarkerGroup.clearLayers();
     otherMarkerGroup.clearLayers();
     firstShapeGroup.clearLayers();
     otherShapeGroup.clearLayers();
-    
+
+    // 建立表格
     let tableContent = `
       <table class="table table-bordered">
         <thead>
@@ -293,7 +320,9 @@ async function queryMultipleLands() {
         </thead>
         <tbody>
     `;
+
     var markerOtherCounter = parseInt(document.getElementById('marker2-start').value) || 1;
+
     data.features.forEach((feature, index) => {
       const properties = feature.properties;
       const xCenter = properties.xcenter.toFixed(6);
@@ -301,9 +330,14 @@ async function queryMultipleLands() {
       const latLonFormat = `${yCenter},${xCenter}`;
       const googleMapsLink = `https://www.google.com/maps/place/${latLonFormat}`;
       const formattedLandNumber = formatLandNumber(properties["地號"]);
+
       tableContent += `
         <tr>
-          <td>${index === 0 ? "勘估標的" : (document.getElementById('marker2-text').value.trim() === "" ? markerOtherCounter : document.getElementById('marker2-text').value + markerOtherCounter)}</td>
+          <td>${index === 0 ? "勘估標的" : 
+              (document.getElementById('marker2-text').value.trim() === "" 
+              ? markerOtherCounter 
+              : document.getElementById('marker2-text').value + markerOtherCounter)}
+          </td>
           <td>${properties["縣市"]}</td>
           <td>${properties["鄉鎮"]}</td>
           <td>${properties["地段"]}</td>
@@ -311,6 +345,8 @@ async function queryMultipleLands() {
           <td><a href="${googleMapsLink}" target="_blank">${latLonFormat}</a></td>
         </tr>
       `;
+
+      // 建立標記 (Marker)
       let marker;
       if (index === 0) {
         marker = createCustomMarker(yCenter, xCenter, "勘估標的", "first");
@@ -324,22 +360,30 @@ async function queryMultipleLands() {
         let geoJsonLayer = L.geoJSON(feature);
         otherShapeGroup.addLayer(geoJsonLayer);
       }
+
+      // 允許拖動標記
       marker.on('dragend', function(e) {
         const newPos = e.target.getLatLng();
         console.log(`Marker 新位置：${newPos.lat}, ${newPos.lng}`);
       });
     });
+
     tableContent += `</tbody></table>`;
-    
+
     // 如果結果超過 4 筆，預設折疊表格，以旋轉三角形作為 toggle
     let resultArea = document.getElementById('resultArea');
     const rowCount = (new DOMParser().parseFromString(tableContent, 'text/html')).querySelectorAll('tbody tr').length;
-    if(rowCount > 4) {
-      resultArea.innerHTML = `<div id="toggleTable" class="collapsed"><div class="triangle"></div><span>顯示表格</span></div>
-      <div id="resultTableContainer" style="display:none;">${tableContent}</div>`;
-      document.getElementById('toggleTable').addEventListener('click', function(){
+
+    if (rowCount > 4) {
+      resultArea.innerHTML = `
+        <div id="toggleTable" class="collapsed">
+          <div class="triangle"></div><span>顯示表格</span>
+        </div>
+        <div id="resultTableContainer" style="display:none;">${tableContent}</div>
+      `;
+      document.getElementById('toggleTable').addEventListener('click', function() {
         let container = document.getElementById('resultTableContainer');
-        if(container.style.display === 'none') {
+        if (container.style.display === 'none') {
           container.style.display = 'block';
           this.classList.remove('collapsed');
           this.querySelector('span').textContent = '收合表格';
@@ -352,16 +396,19 @@ async function queryMultipleLands() {
     } else {
       resultArea.innerHTML = `<div id="resultTableContainer">${tableContent}</div>`;
     }
-    
+
+    // 調整地圖視野
     var bounds = L.latLngBounds([]);
-    firstShapeGroup.eachLayer(function(layer){ bounds.extend(layer.getBounds()); });
-    otherShapeGroup.eachLayer(function(layer){ bounds.extend(layer.getBounds()); });
+    firstShapeGroup.eachLayer(layer => bounds.extend(layer.getBounds()));
+    otherShapeGroup.eachLayer(layer => bounds.extend(layer.getBounds()));
     map.fitBounds(bounds);
+
   } catch (error) {
     document.getElementById('multi-error').textContent = `錯誤：${error.message}`;
     console.error('API 請求錯誤:', error);
   }
 }
+
 
 // ------------------------------
 // 切換按鈕
