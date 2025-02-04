@@ -6,14 +6,65 @@ var showMarkerText = true;  // 預設預設 marker 的文字顯示狀態
 // ------------------------------
 // 初始化地圖
 // ------------------------------
-var map = L.map('map').setView([25.000659102852, 121.51006510846], 14);
-L.tileLayer('https://wmts.nlsc.gov.tw/wmts/EMAP5/{Style}/{TileMatrixSet}/{z}/{y}/{x}', {
-  attribution: '&copy; <a href="http://maps.nlsc.gov.tw/S09SOA/">國土測繪圖資服務雲</a> contributors',
-  Style: 'default',
-  TileMatrixSet: 'GoogleMapsCompatible',
-  maxNativeZoom: 20,
-  maxZoom: 20
+// 初始化地圖，將中心定位在公司
+// var map = L.map('map').setView([25.0722096, 121.5120364], 14);
+// L.tileLayer('https://wmts.nlsc.gov.tw/wmts/EMAP5/{Style}/{TileMatrixSet}/{z}/{y}/{x}', {
+//   attribution: '&copy; <a href="http://maps.nlsc.gov.tw/S09SOA/">國土測繪圖資服務雲</a> contributors',
+//   Style: 'default',
+//   TileMatrixSet: 'GoogleMapsCompatible',
+//   maxNativeZoom: 20,
+//   maxZoom: 20
+// }).addTo(map);
+// 初始化地圖，將中心定位在公司
+var map = L.map('map').setView([25.0722096, 121.5120364], 16);
+
+// 添加地圖圖層
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
 }).addTo(map);
+
+// 自訂小房子圖標
+var houseIcon = L.icon({
+  iconUrl: 'https://cdn-icons-png.flaticon.com/512/25/25694.png', // 小房子圖標
+  iconSize: [35, 35], // 圖標大小
+  iconAnchor: [17.5, 35], // 圖標錨點
+  popupAnchor: [0, -35], // 彈窗錨點
+  shadowUrl: null, // 無陰影
+  shadowSize: null,
+  shadowAnchor: null,
+});
+
+// 使用 CSS 過濾器修改圖標顏色為深紅色 #8B0000
+var cssFilterDeepRed = `
+  filter: brightness(0) saturate(100%) invert(13%) sepia(98%) saturate(6175%) hue-rotate(353deg) brightness(72%) contrast(92%);
+`;
+
+// 動態插入 style 規則
+var styleDeepRed = document.createElement('style');
+styleDeepRed.innerHTML = `
+  .leaflet-marker-icon {
+    ${cssFilterDeepRed} /* 套用濾鏡 */
+  }
+`;
+document.head.appendChild(styleDeepRed);
+
+
+
+// 添加可移動的 Marker
+var officeMarker = L.marker([25.0722096, 121.5120364], {
+  icon: houseIcon,
+  draggable: true // 設置為可移動
+}).addTo(map);
+
+// 為 Marker 添加彈窗，顯示公司名稱
+officeMarker.bindPopup("<b>漢娜不動產估價師聯合事務所</b>").openPopup();
+
+// 監聽 Marker 的移動事件，輸出新座標
+officeMarker.on('dragend', function (e) {
+  const newCoords = e.target.getLatLng();
+  console.log(`新位置：緯度 ${newCoords.lat}, 經度 ${newCoords.lng}`);
+});
+
 
 // ------------------------------
 // 建立分組：第一個標的與比較標的的 Marker 與形狀
