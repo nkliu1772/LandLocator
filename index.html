@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>HRE 地號座標查詢系統</title>
-  <meta name="version" content="1.1.0">
+  <meta name="version" content="1.1.4">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
   <style>
     /* MUJI 風格簡約配色 */
@@ -26,7 +26,7 @@
     }
     button {
       padding: 12px 24px;
-      margin: 10px;
+      margin: 10px 0;
       font-size: 1rem;
       color: white;
       background-color: #3CBBC6;
@@ -152,14 +152,16 @@
       </div>
     </div>
 
-    
     <!-- 多筆查詢區塊 -->
     <h2>多筆查詢</h2>
     <label for="multi-land-id">輸入地號 (用逗號或換行分隔)：</label>
     <br>
-    <textarea id="multi-land-id" placeholder="查詢時不需輸入「信義區」等行政區。輸入範例：臺北市信義段三小段13地號, 臺北市信義段三小段25-1地號"></textarea>
+    <textarea id="multi-land-id" placeholder="例如：臺北市信義段三小段13地號, 臺北市信義段三小段25地號, 臺北市信義段三小段39地號, 臺北市信義段三小段49地號"></textarea>
     <br>
-    <button onclick="queryMultipleLands()">查詢並顯示地圖</button>
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px;">
+      <button onclick="queryMultipleLands()">查詢並顯示地圖</button>
+     <button onclick="fillRandomSample()">填入範例</button>
+    </div>
     <div id="multi-error" style="color: red; margin-top: 10px;"></div>
     <!-- 結果表格區 -->
     <div id="resultArea" style="margin-top: 5px;"></div>

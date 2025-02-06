@@ -464,6 +464,19 @@ async function queryMultipleLands() {
   }
 }
 
+// 1. 定義三組或更多組的範例
+var sampleSets = [
+  "臺北市信義段三小段13地號, 臺北市信義段三小段25地號, 臺北市信義段三小段39地號, 臺北市信義段三小段49地號, 臺北市信義段一小段1地號",
+  "連江縣清水段650地號,連江縣清水段600地號,連江縣清水段700-1地號,連江縣清水段500地號",
+  "臺北市天山段一小段3-1地號, 臺北市天山段二小段1-1地號, 臺北市天山段一小段20-1地號,臺北市天山段二小段25地號"
+];
+
+// 2. 隨機選一組範例並塞到文字框
+function fillRandomSample() {
+  var idx = Math.floor(Math.random() * sampleSets.length);
+  document.getElementById("multi-land-id").value = sampleSets[idx];
+}
+
 
 // ------------------------------
 // 切換按鈕
@@ -512,3 +525,4 @@ document.getElementById('closeExplanationBtn').addEventListener('click', functio
 document.getElementById('explanationModal').addEventListener('click', function(e){
   if(e.target === this) { this.style.display = 'none'; }
 });
+
