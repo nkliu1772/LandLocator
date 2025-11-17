@@ -832,6 +832,30 @@
                     </label>
                 </div>
 
+                <div class="settings-group">
+                    <div class="settings-group-title">🔗 引導線設定</div>
+                    <label style="font-size: 0.85rem; color: #666; margin-bottom: 0.5rem; display: block;">
+                        線條粗細: <span id="lineWidthValue" style="color: #3CBBC6; font-weight: 600;">2px</span>
+                    </label>
+                    <input type="range" class="settings-input" id="lineWidthSlider" min="1" max="5" value="2" step="1" style="width: 100%;">
+
+                    <label style="font-size: 0.85rem; color: #666; margin-top: 0.75rem; margin-bottom: 0.5rem; display: block;">
+                        線條顏色:
+                    </label>
+                    <div class="color-options">
+                        <div class="color-option" style="background-color: #333333;" data-color="#333333" data-target="line" title="深灰"></div>
+                        <div class="color-option selected" style="background-color: #666666;" data-color="#666666" data-target="line" title="灰色"></div>
+                        <div class="color-option" style="background-color: #999999;" data-color="#999999" data-target="line" title="淺灰"></div>
+                        <div class="color-option" style="background-color: #ef5350;" data-color="#ef5350" data-target="line" title="紅色"></div>
+                        <div class="color-option" style="background-color: #42a5f5;" data-color="#42a5f5" data-target="line" title="藍色"></div>
+                    </div>
+
+                    <label style="font-size: 0.85rem; color: #666; margin-top: 0.75rem; margin-bottom: 0.5rem; display: block;">
+                        透明度: <span id="lineOpacityValue" style="color: #3CBBC6; font-weight: 600;">70%</span>
+                    </label>
+                    <input type="range" class="settings-input" id="lineOpacitySlider" min="0" max="70" value="70" step="10" style="width: 100%;">
+                </div>
+
                 <button class="settings-submit-btn" id="settingsSubmitBtn">套用設定</button>
             </div>
 
@@ -893,8 +917,13 @@
         let marker1Text = '勘估標的';
         let marker2Text = '比較標的';
         let marker2StartNum = 1;
-        let currentMarkerStyle = 'text'; // 'text', 'pin', 'pin-text', 'dot'
+        let currentMarkerStyle = 'text'; // 'text', 'pin', 'pin-text', 'dot', 'leader-line'
         let markerTextSize = 16; // 預設文字大小
+
+        // 引導線設定
+        let leaderLineWidth = 2; // 引導線粗細（1-5）
+        let leaderLineColor = '#666666'; // 引導線顏色
+        let leaderLineOpacity = 0.3; // 引導線不透明度（opacity）
 
         // 範例資料集
         const sampleSets = [
@@ -1046,6 +1075,24 @@
                     updateAllMarkers();
                 });
             });
+
+            // 引導線粗細控制
+            const lineWidthSlider = document.getElementById('lineWidthSlider');
+            const lineWidthValue = document.getElementById('lineWidthValue');
+
+            lineWidthSlider.addEventListener('input', function() {
+                const width = parseInt(this.value);
+                lineWidthValue.textContent = width + 'px';
+            });
+
+            // 引導線透明度控制
+            const lineOpacitySlider = document.getElementById('lineOpacitySlider');
+            const lineOpacityValue = document.getElementById('lineOpacityValue');
+
+            lineOpacitySlider.addEventListener('input', function() {
+                const transparency = parseInt(this.value); // 透明度百分比（0-70）
+                lineOpacityValue.textContent = transparency + '%';
+            });
         }
 
         // 切換設定面板
@@ -1069,9 +1116,16 @@
             // 取得選中的顏色
             const marker1ColorOption = document.querySelector('.color-option[data-target="marker1"].selected');
             const marker2ColorOption = document.querySelector('.color-option[data-target="marker2"].selected');
+            const lineColorOption = document.querySelector('.color-option[data-target="line"].selected');
 
             if (marker1ColorOption) marker1Color = marker1ColorOption.dataset.color;
             if (marker2ColorOption) marker2Color = marker2ColorOption.dataset.color;
+            if (lineColorOption) leaderLineColor = lineColorOption.dataset.color;
+
+            // 取得引導線設定
+            leaderLineWidth = parseInt(document.getElementById('lineWidthSlider').value) || 2;
+            const transparency = parseInt(document.getElementById('lineOpacitySlider').value) || 70; // 透明度百分比
+            leaderLineOpacity = 1 - (transparency / 100); // 轉換為 opacity 值
 
             // 重新渲染標記
             updateAllMarkers();
@@ -1364,7 +1418,7 @@
                 case 'leader-line': {
                     // 引導線標籤樣式：固定點 + 可拖曳文字 + 連接線
                     const centerPos = L.latLng(lat, lng);
-                    const offsetDist = 0.0002;
+                    const offsetDist = 0.0008; // 增加偏移距離，避免文字蓋住中心點
                     const labelPos = L.latLng(lat + offsetDist, lng + offsetDist);
 
                     // 創建固定中心點
@@ -1387,8 +1441,13 @@
                     });
                     const labelMarker = L.marker(labelPos, { icon: labelIcon, draggable: true, zIndexOffset: 1000 });
 
-                    // 創建連接線
-                    const line = L.polyline([centerPos, labelPos], { color: bgColor, weight: 2, opacity: 0.7, dashArray: '5, 8' });
+                    // 創建連接線（使用全域設定）
+                    const line = L.polyline([centerPos, labelPos], {
+                        color: leaderLineColor,
+                        weight: leaderLineWidth,
+                        opacity: leaderLineOpacity,
+                        dashArray: '5, 8'
+                    });
 
                     // 監聽拖曳更新連接線
                     labelMarker.on('drag', function(e) {
