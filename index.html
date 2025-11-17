@@ -788,7 +788,7 @@
                 <div class="marker-style-dropdown">
                     <button class="map-control-btn" id="markerStyleBtn">標記樣式 ▾</button>
                     <div class="marker-style-menu" id="markerStyleMenu">
-                        <div class="marker-style-option active" data-style="text">
+                        <div class="marker-style-option" data-style="text">
                             <span class="marker-style-icon">📝</span>
                             <span>文字標籤</span>
                         </div>
@@ -804,7 +804,7 @@
                             <span class="marker-style-icon">⚫</span>
                             <span>小圓點</span>
                         </div>
-                        <div class="marker-style-option" data-style="leader-line">
+                        <div class="marker-style-option active" data-style="leader-line">
                             <span class="marker-style-icon">🔗</span>
                             <span>引導線標籤</span>
                         </div>
@@ -956,7 +956,7 @@
         let marker1Text = '勘估標的';
         let marker2Text = '比較標的';
         let marker2StartNum = 1;
-        let currentMarkerStyle = 'text'; // 'text', 'pin', 'pin-text', 'dot', 'leader-line'
+        let currentMarkerStyle = 'leader-line'; // 'text', 'pin', 'pin-text', 'dot', 'leader-line'
         let markerTextSize = 16; // 預設文字大小
 
         // 儲存當前查詢的土地資料（用於截圖檔名）
