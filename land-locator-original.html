@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HRE 地號座標查詢系統</title>
+  <meta name="version" content="1.1.4">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+  <style>
+    /* MUJI 風格簡約配色 */
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      background-color: #f0f0f5;
+      color: #333;
+    }
+    .container {
+      padding: 20px;
+      max-width: 960px;
+      margin: 0 auto;
+    }
+    h1, h2 {
+      color: #444;
+    }
+    button {
+      padding: 12px 24px;
+      margin: 10px 0;
+      font-size: 1rem;
+      color: white;
+      background-color: #3CBBC6;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    button:hover {
+      background-color: #c5e0e3;
+    }
+    textarea {
+      width: 100%;
+      height: 100px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      padding: 5px;
+      font-family: inherit;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 5px;
+      background-color: #fff;
+    }
+    th, td {
+      padding: 5px;
+      border: 1px solid #ddd;
+      text-align: left;
+    }
+    th {
+      background-color: #eee;
+    }
+    /* 地圖區域容器，讓地圖能夠填滿整個螢幕寬度 */
+    #mapContainer {
+      width: 100vw;
+      margin: 2px;
+      padding: 2px;
+    }
+    #map {
+      width: 98%;
+      height: calc(100vh - 100px);
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    /* 說明彈窗 */
+    #explanationModal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background-color: rgba(0,0,0,0.5);
+      z-index: 1000;
+    }
+    #explanationModal .modal-content {
+      background-color: #fff;
+      padding: 20px;
+      max-width: 600px;
+      margin: 100px auto;
+      border-radius: 4px;
+      position: relative;
+    }
+    #explanationModal .modal-content h2 {
+      margin-top: 0;
+    }
+    #explanationModal .modal-content .close-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: none;
+      border: none;
+      font-size: 18px;
+      cursor: pointer;
+      color: black;
+    }
+    /* 表格 toggle 樣式：旋轉三角形 */
+    #toggleTable {
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+      color: #3CBBC6;
+      font-weight: bold;
+    }
+    #toggleTable .triangle {
+      width: 0;
+      height: 0;
+      border-left: 8px solid transparent;
+      border-right: 8px solid transparent;
+      border-top: 12px solid #3CBBC6;
+      margin-right: 8px;
+      transition: transform 0.3s;
+    }
+    #toggleTable.collapsed .triangle {
+      transform: rotate(-90deg);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- 頁首標題與說明按鈕 -->
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <h1>HRE 地號座標查詢系統</h1>
+      <button id="showExplanationBtn">說明</button>
+    </div>
+    
+    <!-- 說明彈窗 -->
+    <div id="explanationModal">
+      <div class="modal-content">
+        <button class="close-btn" id="closeExplanationBtn">X</button>
+        <h2>輸入說明</h2>
+        <p>目前 API 支援的地號格式範例如下：</p>
+        <ul>
+          <li>臺北市信義段三小段13地號, 臺北市信義段三小段25地號, 臺北市信義段三小段39地號, 臺北市信義段三小段49地號, 臺北市信義段一小段1地號</li>
+        </ul>
+        <h2>注意</h2>
+        <ul>
+          <li>輸入時可包含「地號」關鍵字，系統會自動轉換成 API 支援的格式。</li>
+          <li>查詢時不需撰寫例如「信義區」等行政區名稱。</li>
+          <li>請注意，可能會因同一縣市有相同「段名」的土地而產生重複結果。</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- 多筆查詢區塊 -->
+    <h2>多筆查詢</h2>
+    <label for="multi-land-id">輸入地號 (用逗號或換行分隔)：</label>
+    <br>
+    <textarea id="multi-land-id" placeholder="例如：臺北市信義段三小段13地號, 臺北市信義段三小段25地號, 臺北市信義段三小段39地號, 臺北市信義段三小段49地號"></textarea>
+    <br>
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px;">
+      <button onclick="queryMultipleLands()">查詢並顯示地圖</button>
+     <button onclick="fillRandomSample()">填入範例</button>
+    </div>
+    <div id="multi-error" style="color: red; margin-top: 10px;"></div>
+    <!-- 結果表格區 -->
+    <div id="resultArea" style="margin-top: 5px;"></div>
+  </div>
+  
+  <!-- 地圖獨立區域 -->
+  <div id="mapContainer">
+    <h2 style="text-align: center;">地圖顯示</h2>
+    <div style="text-align: center; margin-bottom: 10px;">
+      <button onclick="toggleMarkers()">切換全部標記顯示</button>
+      <button onclick="toggleShapes()">切換全部圖形框框顯示</button>
+      <button onclick="toggleFirstMarker()">切換第一個標的顯示</button>
+      <button onclick="toggleMarkerText()">切換文字顯示</button>
+    </div>
+    <div id="map"></div>
+  </div>
+  
+  <!-- Leaflet -->
+  <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+  <!-- 載入您自己的腳本 -->
+  <script src="scripts.js"></script>
+</body>
+</html>

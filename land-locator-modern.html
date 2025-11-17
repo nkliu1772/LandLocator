@@ -1,0 +1,1459 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HRE 地號座標查詢系統</title>
+    <meta name="version" content="2.0.0">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Microsoft JhengHei", sans-serif;
+            overflow: hidden;
+        }
+
+        /* 頂部標題列 */
+        .header {
+            background: linear-gradient(135deg, #3CBBC6 0%, #2a9da6 100%);
+            color: white;
+            padding: 1rem 1.5rem;
+            font-size: 1.5rem;
+            font-weight: 600;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .help-btn {
+            background-color: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        .help-btn:hover {
+            background-color: rgba(255, 255, 255, 0.3);
+        }
+
+        /* 主要容器 - 左右分欄 */
+        .main-container {
+            display: flex;
+            height: calc(100vh - 60px);
+            overflow: hidden;
+        }
+
+        /* 左側邊欄 */
+        .sidebar {
+            width: 450px;
+            background-color: #f5f5f5;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid #ddd;
+        }
+
+        .sidebar-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1.5rem;
+        }
+
+        /* 右側地圖容器 */
+        .map-container {
+            flex: 1;
+            position: relative;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* 地圖控制按鈕區 */
+        .map-controls {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            display: flex;
+            gap: 0.5rem;
+            background: white;
+            padding: 0.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+
+        .map-control-btn {
+            padding: 0.5rem 1rem;
+            background: white;
+            color: #3CBBC6;
+            border: 1px solid #3CBBC6;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.3s ease;
+        }
+
+        .map-control-btn:hover {
+            background: #3CBBC6;
+            color: white;
+        }
+
+        /* 標記樣式選單 */
+        .marker-style-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+
+        .marker-style-menu {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            margin-top: 0.5rem;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            min-width: 200px;
+            z-index: 1001;
+        }
+
+        .marker-style-menu.show {
+            display: block;
+        }
+
+        .marker-style-option {
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .marker-style-option:last-child {
+            border-bottom: none;
+        }
+
+        .marker-style-option:hover {
+            background-color: #f8f9fa;
+        }
+
+        .marker-style-option.active {
+            background-color: #e8f5f6;
+            color: #3CBBC6;
+            font-weight: 600;
+        }
+
+        .marker-style-icon {
+            font-size: 1.2rem;
+            width: 24px;
+            text-align: center;
+        }
+
+        /* 文字大小控制 */
+        .text-size-control {
+            position: absolute;
+            bottom: 80px;
+            right: 10px;
+            z-index: 1000;
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            min-width: 200px;
+        }
+
+        .text-size-label {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .text-size-value {
+            color: #3CBBC6;
+            font-size: 1rem;
+        }
+
+        .text-size-slider {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #e0e0e0;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .text-size-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #3CBBC6;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .text-size-slider::-webkit-slider-thumb:hover {
+            background: #2a9da6;
+            transform: scale(1.2);
+        }
+
+        .text-size-slider::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #3CBBC6;
+            cursor: pointer;
+            border: none;
+            transition: all 0.3s ease;
+        }
+
+        .text-size-slider::-moz-range-thumb:hover {
+            background: #2a9da6;
+            transform: scale(1.2);
+        }
+
+        .text-size-presets {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 0.5rem;
+        }
+
+        .text-size-preset-btn {
+            flex: 1;
+            padding: 0.4rem;
+            margin: 0 0.2rem;
+            font-size: 0.75rem;
+            background: white;
+            color: #3CBBC6;
+            border: 1px solid #3CBBC6;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .text-size-preset-btn:hover {
+            background: #3CBBC6;
+            color: white;
+        }
+
+        /* 查詢表單區塊 */
+        .query-section {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 1.5rem;
+        }
+
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: #333;
+        }
+
+        .form-label {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            display: block;
+        }
+
+        .land-input {
+            width: 100%;
+            min-height: 120px;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 0.9rem;
+            resize: vertical;
+            transition: border-color 0.3s ease;
+        }
+
+        .land-input:focus {
+            outline: none;
+            border-color: #3CBBC6;
+            box-shadow: 0 0 0 3px rgba(60, 187, 198, 0.1);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+
+        .query-button {
+            flex: 1;
+            padding: 0.75rem;
+            background: linear-gradient(135deg, #3CBBC6 0%, #2a9da6 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .query-button:hover {
+            background: linear-gradient(135deg, #2a9da6 0%, #238a92 100%);
+            box-shadow: 0 2px 8px rgba(60, 187, 198, 0.3);
+        }
+
+        .query-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .secondary-button {
+            flex: 1;
+            padding: 0.75rem;
+            background: white;
+            color: #3CBBC6;
+            border: 1px solid #3CBBC6;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .secondary-button:hover {
+            background: #f0f9fa;
+        }
+
+        /* 結果表格區塊 */
+        .results-section {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .results-header {
+            background-color: #e8f5e9;
+            padding: 1rem 1.5rem;
+            font-weight: 600;
+            color: #2e7d32;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .results-header:hover {
+            background-color: #dcedc8;
+        }
+
+        .toggle-icon {
+            width: 0;
+            height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 12px solid #2e7d32;
+            transition: transform 0.3s;
+        }
+
+        .toggle-icon.collapsed {
+            transform: rotate(-90deg);
+        }
+
+        .results-table-container {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .results-table th {
+            background-color: #f5f5f5;
+            padding: 0.75rem;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #666;
+            border-bottom: 2px solid #ddd;
+        }
+
+        .results-table td {
+            padding: 0.75rem;
+            border-bottom: 1px solid #eee;
+            font-size: 0.9rem;
+        }
+
+        .results-table tr:hover {
+            background-color: #f9f9f9;
+        }
+
+        .results-table a {
+            color: #3CBBC6;
+            text-decoration: none;
+        }
+
+        .results-table a:hover {
+            text-decoration: underline;
+        }
+
+        /* 錯誤訊息 */
+        .error-message {
+            background-color: #ffebee;
+            color: #c62828;
+            padding: 1rem;
+            border-radius: 6px;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+            border-left: 4px solid #c62828;
+        }
+
+        /* 說明彈窗 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba(0,0,0,0.5);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background-color: white;
+            padding: 2rem;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            border-radius: 12px;
+            position: relative;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #666;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+
+        .modal-close:hover {
+            background-color: #f0f0f0;
+            color: #333;
+        }
+
+        .modal-content h2 {
+            margin-top: 0;
+            color: #3CBBC6;
+        }
+
+        .modal-content ul {
+            padding-left: 1.5rem;
+        }
+
+        .modal-content li {
+            margin-bottom: 0.5rem;
+            line-height: 1.6;
+        }
+
+        /* 滾動條樣式 */
+        .sidebar-content::-webkit-scrollbar,
+        .results-table-container::-webkit-scrollbar,
+        .modal-content::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .sidebar-content::-webkit-scrollbar-track,
+        .results-table-container::-webkit-scrollbar-track,
+        .modal-content::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        .sidebar-content::-webkit-scrollbar-thumb,
+        .results-table-container::-webkit-scrollbar-thumb,
+        .modal-content::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+
+        .sidebar-content::-webkit-scrollbar-thumb:hover,
+        .results-table-container::-webkit-scrollbar-thumb:hover,
+        .modal-content::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        /* Marker 設定按鈕 */
+        .marker-settings-btn {
+            position: absolute;
+            bottom: 20px;
+            left: 10px;
+            z-index: 1000;
+            background: white;
+            padding: 0.75rem;
+            width: 46px;
+            height: 46px;
+            border-radius: 50%;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            cursor: pointer;
+            color: #3CBBC6;
+            border: 1px solid #3CBBC6;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+        }
+
+        .marker-settings-btn:hover {
+            background: #f0f9fa;
+            transform: scale(1.05);
+        }
+
+        /* Marker 設定面板 */
+        .marker-settings-panel {
+            display: none;
+            position: absolute;
+            bottom: 80px;
+            left: 10px;
+            z-index: 1000;
+            background: white;
+            padding: 1.5rem;
+            max-width: 300px;
+            border-radius: 12px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+        }
+
+        .marker-settings-panel.show {
+            display: block;
+        }
+
+        .settings-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .settings-panel-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .settings-close-btn {
+            background: none;
+            border: none;
+            font-size: 1.3rem;
+            cursor: pointer;
+            color: #666;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+
+        .settings-close-btn:hover {
+            background-color: #f0f0f0;
+            color: #333;
+        }
+
+        .settings-group {
+            margin-bottom: 1rem;
+        }
+
+        .settings-group-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #555;
+            margin-bottom: 0.5rem;
+        }
+
+        .settings-input {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+
+        .color-options {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .color-option {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 3px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .color-option.selected {
+            border-color: #333;
+            transform: scale(1.1);
+        }
+
+        .settings-submit-btn {
+            width: 100%;
+            padding: 0.75rem;
+            background: linear-gradient(135deg, #3CBBC6 0%, #2a9da6 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            margin-top: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .settings-submit-btn:hover {
+            background: linear-gradient(135deg, #2a9da6 0%, #238a92 100%);
+        }
+
+        /* 載入動畫 */
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3CBBC6;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: 0.5rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <!-- 頂部標題 -->
+    <div class="header">
+        <div class="header-title">
+            <span>🏠</span>
+            <span>HRE 地號座標查詢系統</span>
+        </div>
+        <button class="help-btn" id="showHelpBtn">📖 使用說明</button>
+    </div>
+
+    <!-- 主要內容區 -->
+    <div class="main-container">
+        <!-- 左側查詢區域 -->
+        <div class="sidebar">
+            <div class="sidebar-content">
+                <!-- 查詢表單 -->
+                <div class="query-section">
+                    <h3 class="section-title">多筆地號查詢</h3>
+
+                    <form id="queryForm">
+                        <label class="form-label">輸入地號 (用逗號或換行分隔)</label>
+                        <textarea
+                            class="land-input"
+                            id="landInput"
+                            placeholder="例如：臺北市信義段三小段13地號, 臺北市信義段三小段25地號, 臺北市信義段三小段39地號"
+                        ></textarea>
+
+                        <div class="button-group">
+                            <button type="submit" class="query-button" id="queryBtn">
+                                <span>🔍 查詢並顯示地圖</span>
+                            </button>
+                            <button type="button" class="secondary-button" id="exampleBtn">
+                                💡 填入範例
+                            </button>
+                        </div>
+                    </form>
+
+                    <!-- 錯誤訊息容器 -->
+                    <div id="errorContainer"></div>
+                </div>
+
+                <!-- 查詢結果 -->
+                <div class="results-section" id="resultsSection" style="display: none;">
+                    <div class="results-header" id="resultsToggle">
+                        <span>查詢結果</span>
+                        <div class="toggle-icon" id="toggleIcon"></div>
+                    </div>
+                    <div class="results-table-container" id="resultsContainer">
+                        <!-- 結果將動態插入這裡 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右側地圖區域 -->
+        <div class="map-container">
+            <!-- 地圖控制按鈕 -->
+            <div class="map-controls">
+                <button class="map-control-btn" id="toggleMarkersBtn">標記</button>
+                <button class="map-control-btn" id="toggleShapesBtn">框線</button>
+                <button class="map-control-btn" id="toggleFirstBtn">第一筆</button>
+                <div class="marker-style-dropdown">
+                    <button class="map-control-btn" id="markerStyleBtn">標記樣式 ▾</button>
+                    <div class="marker-style-menu" id="markerStyleMenu">
+                        <div class="marker-style-option active" data-style="text">
+                            <span class="marker-style-icon">📝</span>
+                            <span>文字標籤</span>
+                        </div>
+                        <div class="marker-style-option" data-style="pin">
+                            <span class="marker-style-icon">📍</span>
+                            <span>標準 Marker</span>
+                        </div>
+                        <div class="marker-style-option" data-style="pin-text">
+                            <span class="marker-style-icon">🏷️</span>
+                            <span>Marker + 文字</span>
+                        </div>
+                        <div class="marker-style-option" data-style="dot">
+                            <span class="marker-style-icon">⚫</span>
+                            <span>小圓點</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Marker 設定按鈕 -->
+            <button class="marker-settings-btn" id="markerSettingsBtn" title="標記設定">⚙️</button>
+
+            <!-- 文字大小控制 -->
+            <div class="text-size-control">
+                <div class="text-size-label">
+                    <span>文字大小</span>
+                    <span class="text-size-value" id="textSizeValue">16px</span>
+                </div>
+                <input type="range"
+                       class="text-size-slider"
+                       id="textSizeSlider"
+                       min="10"
+                       max="24"
+                       value="16"
+                       step="1">
+                <div class="text-size-presets">
+                    <button class="text-size-preset-btn" data-size="12">小</button>
+                    <button class="text-size-preset-btn" data-size="16">中</button>
+                    <button class="text-size-preset-btn" data-size="20">大</button>
+                    <button class="text-size-preset-btn" data-size="24">特大</button>
+                </div>
+            </div>
+
+            <!-- Marker 設定面板 -->
+            <div class="marker-settings-panel" id="markerSettingsPanel">
+                <div class="settings-panel-header">
+                    <div class="settings-panel-title">標記設定</div>
+                    <button class="settings-close-btn" id="settingsCloseBtn">×</button>
+                </div>
+
+                <div class="settings-group">
+                    <div class="settings-group-title">勘估標的</div>
+                    <input type="text" class="settings-input" id="marker1Text" value="勘估標的" placeholder="標記文字">
+                    <div class="color-options">
+                        <div class="color-option selected" style="background-color: #ef5350;" data-color="#ef5350" data-target="marker1"></div>
+                        <div class="color-option" style="background-color: #42a5f5;" data-color="#42a5f5" data-target="marker1"></div>
+                        <div class="color-option" style="background-color: #66bb6a;" data-color="#66bb6a" data-target="marker1"></div>
+                        <div class="color-option" style="background-color: #ffa726;" data-color="#ffa726" data-target="marker1"></div>
+                        <div class="color-option" style="background-color: #ab47bc;" data-color="#ab47bc" data-target="marker1"></div>
+                    </div>
+                </div>
+
+                <div class="settings-group">
+                    <div class="settings-group-title">比較標的</div>
+                    <input type="text" class="settings-input" id="marker2Text" value="比較標的" placeholder="標記文字">
+                    <div class="color-options">
+                        <div class="color-option" style="background-color: #ef5350;" data-color="#ef5350" data-target="marker2"></div>
+                        <div class="color-option selected" style="background-color: #42a5f5;" data-color="#42a5f5" data-target="marker2"></div>
+                        <div class="color-option" style="background-color: #66bb6a;" data-color="#66bb6a" data-target="marker2"></div>
+                        <div class="color-option" style="background-color: #ffa726;" data-color="#ffa726" data-target="marker2"></div>
+                        <div class="color-option" style="background-color: #ab47bc;" data-color="#ab47bc" data-target="marker2"></div>
+                    </div>
+                    <label style="font-size: 0.85rem; color: #666; margin-top: 0.5rem; display: block;">
+                        起始編號: <input type="number" class="settings-input" id="marker2Start" value="1" min="1" style="width: 60px; display: inline-block; margin-left: 0.5rem;">
+                    </label>
+                </div>
+
+                <button class="settings-submit-btn" id="settingsSubmitBtn">套用設定</button>
+            </div>
+
+            <div id="map"></div>
+        </div>
+    </div>
+
+    <!-- 說明彈窗 -->
+    <div class="modal" id="helpModal">
+        <div class="modal-content">
+            <button class="modal-close" id="closeHelpBtn">×</button>
+            <h2>📖 使用說明</h2>
+
+            <h4>支援的地號格式範例</h4>
+            <ul>
+                <li>臺北市信義段三小段13地號</li>
+                <li>臺北市信義段三小段25地號</li>
+                <li>臺北市信義段三小段39地號</li>
+                <li>臺北市信義段一小段1地號</li>
+            </ul>
+
+            <h4>⚠️ 注意事項</h4>
+            <ul>
+                <li>輸入時可包含「地號」關鍵字，系統會自動轉換成 API 支援的格式</li>
+                <li>查詢時不需撰寫例如「信義區」等行政區名稱</li>
+                <li>請注意，可能會因同一縣市有相同「段名」的土地而產生重複結果</li>
+                <li>多筆查詢時，可使用逗號或換行分隔</li>
+            </ul>
+
+            <h4>🗺️ 地圖功能</h4>
+            <ul>
+                <li><strong>標記：</strong>切換顯示/隱藏所有地號標記</li>
+                <li><strong>框線：</strong>切換顯示/隱藏土地範圍框線</li>
+                <li><strong>第一筆：</strong>切換顯示/隱藏第一筆標的</li>
+                <li><strong>文字：</strong>切換標記文字顯示</li>
+                <li><strong>標記設定：</strong>自訂標記樣式、顏色與編號</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- JavaScript Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        // ==================== 全域變數 ====================
+        let map;
+        let officeMarker;
+        let firstMarkerGroup = L.layerGroup();
+        let otherMarkerGroup = L.layerGroup();
+        let firstShapeGroup = L.layerGroup();
+        let otherShapeGroup = L.layerGroup();
+        let showMarkerText = true;
+        let markerCounter = 1;
+
+        // 標記設定
+        let marker1Color = '#ef5350';
+        let marker2Color = '#42a5f5';
+        let marker1Text = '勘估標的';
+        let marker2Text = '比較標的';
+        let marker2StartNum = 1;
+        let currentMarkerStyle = 'text'; // 'text', 'pin', 'pin-text', 'dot'
+        let markerTextSize = 16; // 預設文字大小
+
+        // 範例資料集
+        const sampleSets = [
+            "臺北市信義段三小段13地號, 臺北市信義段三小段25地號, 臺北市信義段三小段39地號, 臺北市信義段三小段49地號, 臺北市信義段一小段1地號",
+            "連江縣清水段650地號,連江縣清水段600地號,連江縣清水段700-1地號,連江縣清水段500地號",
+            "臺北市天山段一小段3-1地號, 臺北市天山段二小段1-1地號, 臺北市天山段一小段20-1地號,臺北市天山段二小段25地號"
+        ];
+
+        // ==================== 初始化 ====================
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeMap();
+            initializeEventListeners();
+        });
+
+        // 初始化地圖
+        function initializeMap() {
+            map = L.map('map').setView([25.0722096, 121.5120364], 16);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+
+            // 添加圖層
+            firstMarkerGroup.addTo(map);
+            otherMarkerGroup.addTo(map);
+            firstShapeGroup.addTo(map);
+            otherShapeGroup.addTo(map);
+
+            // 添加公司位置標記
+            const houseIcon = L.icon({
+                iconUrl: 'https://cdn-icons-png.flaticon.com/512/25/25694.png',
+                iconSize: [35, 35],
+                iconAnchor: [17.5, 35],
+                popupAnchor: [0, -35]
+            });
+
+            officeMarker = L.marker([25.0722096, 121.5120364], {
+                icon: houseIcon,
+                draggable: true
+            }).addTo(map);
+
+            officeMarker.bindPopup("<b style='font-size:14px;'>漢娜不動產估價師聯合事務所</b>").openPopup();
+        }
+
+        // 初始化事件監聽器
+        function initializeEventListeners() {
+            // 表單提交
+            document.getElementById('queryForm').addEventListener('submit', handleQuery);
+
+            // 填入範例
+            document.getElementById('exampleBtn').addEventListener('click', fillRandomExample);
+
+            // 說明彈窗
+            document.getElementById('showHelpBtn').addEventListener('click', () => {
+                document.getElementById('helpModal').classList.add('show');
+            });
+
+            document.getElementById('closeHelpBtn').addEventListener('click', () => {
+                document.getElementById('helpModal').classList.remove('show');
+            });
+
+            document.getElementById('helpModal').addEventListener('click', (e) => {
+                if (e.target === document.getElementById('helpModal')) {
+                    document.getElementById('helpModal').classList.remove('show');
+                }
+            });
+
+            // 結果表格折疊
+            document.getElementById('resultsToggle').addEventListener('click', toggleResults);
+
+            // 地圖控制按鈕
+            document.getElementById('toggleMarkersBtn').addEventListener('click', toggleMarkers);
+            document.getElementById('toggleShapesBtn').addEventListener('click', toggleShapes);
+            document.getElementById('toggleFirstBtn').addEventListener('click', toggleFirstMarker);
+
+            // 標記樣式選單
+            document.getElementById('markerStyleBtn').addEventListener('click', function(e) {
+                e.stopPropagation();
+                document.getElementById('markerStyleMenu').classList.toggle('show');
+            });
+
+            // 點擊外部關閉選單
+            document.addEventListener('click', function(e) {
+                const menu = document.getElementById('markerStyleMenu');
+                const btn = document.getElementById('markerStyleBtn');
+                if (!menu.contains(e.target) && e.target !== btn) {
+                    menu.classList.remove('show');
+                }
+            });
+
+            // 標記樣式選項
+            document.querySelectorAll('.marker-style-option').forEach(option => {
+                option.addEventListener('click', function() {
+                    const style = this.dataset.style;
+                    currentMarkerStyle = style;
+
+                    // 更新 active 狀態
+                    document.querySelectorAll('.marker-style-option').forEach(opt => {
+                        opt.classList.remove('active');
+                    });
+                    this.classList.add('active');
+
+                    // 關閉選單
+                    document.getElementById('markerStyleMenu').classList.remove('show');
+
+                    // 更新標記樣式
+                    updateAllMarkers();
+                });
+            });
+
+            // 標記設定面板
+            document.getElementById('markerSettingsBtn').addEventListener('click', toggleSettingsPanel);
+            document.getElementById('settingsCloseBtn').addEventListener('click', closeSettingsPanel);
+            document.getElementById('settingsSubmitBtn').addEventListener('click', applyMarkerSettings);
+
+            // 顏色選擇
+            document.querySelectorAll('.color-option').forEach(option => {
+                option.addEventListener('click', function() {
+                    const target = this.dataset.target;
+                    const color = this.dataset.color;
+
+                    // 移除同組其他選項的 selected class
+                    document.querySelectorAll(`.color-option[data-target="${target}"]`).forEach(opt => {
+                        opt.classList.remove('selected');
+                    });
+
+                    // 添加 selected class 到當前選項
+                    this.classList.add('selected');
+                });
+            });
+
+            // 文字大小控制
+            const textSizeSlider = document.getElementById('textSizeSlider');
+            const textSizeValue = document.getElementById('textSizeValue');
+
+            textSizeSlider.addEventListener('input', function() {
+                markerTextSize = parseInt(this.value);
+                textSizeValue.textContent = markerTextSize + 'px';
+                updateAllMarkers();
+            });
+
+            // 預設大小按鈕
+            document.querySelectorAll('.text-size-preset-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const size = parseInt(this.dataset.size);
+                    markerTextSize = size;
+                    textSizeSlider.value = size;
+                    textSizeValue.textContent = size + 'px';
+                    updateAllMarkers();
+                });
+            });
+        }
+
+        // 切換設定面板
+        function toggleSettingsPanel() {
+            const panel = document.getElementById('markerSettingsPanel');
+            panel.classList.toggle('show');
+        }
+
+        // 關閉設定面板
+        function closeSettingsPanel() {
+            document.getElementById('markerSettingsPanel').classList.remove('show');
+        }
+
+        // 套用標記設定
+        function applyMarkerSettings() {
+            // 取得設定值
+            marker1Text = document.getElementById('marker1Text').value || '勘估標的';
+            marker2Text = document.getElementById('marker2Text').value || '比較標的';
+            marker2StartNum = parseInt(document.getElementById('marker2Start').value) || 1;
+
+            // 取得選中的顏色
+            const marker1ColorOption = document.querySelector('.color-option[data-target="marker1"].selected');
+            const marker2ColorOption = document.querySelector('.color-option[data-target="marker2"].selected');
+
+            if (marker1ColorOption) marker1Color = marker1ColorOption.dataset.color;
+            if (marker2ColorOption) marker2Color = marker2ColorOption.dataset.color;
+
+            // 重新渲染標記
+            updateAllMarkers();
+
+            // 關閉面板
+            closeSettingsPanel();
+        }
+
+        // 更新所有標記
+        function updateAllMarkers() {
+            const markers = [];
+
+            // 收集所有標記資訊
+            firstMarkerGroup.eachLayer(marker => {
+                markers.push({ marker, isFirst: true, latLng: marker.getLatLng() });
+            });
+
+            let counter = marker2StartNum;
+            otherMarkerGroup.eachLayer(marker => {
+                markers.push({ marker, isFirst: false, latLng: marker.getLatLng(), counter: counter++ });
+            });
+
+            // 清空圖層
+            firstMarkerGroup.clearLayers();
+            otherMarkerGroup.clearLayers();
+
+            // 重新創建標記
+            markers.forEach(({ latLng, isFirst, counter }) => {
+                const label = isFirst ? marker1Text : `${marker2Text}${counter}`;
+                const newMarker = createMarker(latLng.lat, latLng.lng, label, isFirst);
+
+                if (isFirst) {
+                    firstMarkerGroup.addLayer(newMarker);
+                } else {
+                    otherMarkerGroup.addLayer(newMarker);
+                }
+            });
+        }
+
+        // ==================== 查詢處理 ====================
+        async function handleQuery(event) {
+            event.preventDefault();
+
+            clearError();
+
+            const landInput = document.getElementById('landInput').value;
+
+            if (!landInput.trim()) {
+                showError('請輸入至少一筆地號！');
+                return;
+            }
+
+            showLoading(true);
+
+            try {
+                // 處理地號格式
+                const landList = landInput
+                    .split(/[,，\n]+/)
+                    .map(item => formatLandInput(item.trim()))
+                    .filter(Boolean);
+
+                if (landList.length === 0) {
+                    throw new Error('輸入格式錯誤，請確認地號是否正確。');
+                }
+
+                // 呼叫 API
+                const apiUrl = `https://twland.ronny.tw/index/search?${landList
+                    .map(land => `lands[]=${encodeURIComponent(land)}`)
+                    .join('&')}`;
+
+                console.log("API 查詢：", apiUrl);
+
+                const response = await fetch(apiUrl);
+                if (!response.ok) throw new Error(`API 請求失敗：${response.status}`);
+
+                const data = await response.json();
+
+                if (data.notfound && data.notfound.length > 0) {
+                    const notFoundList = data.notfound.map(obj => obj.query).filter(Boolean);
+                    if (notFoundList.length > 0) {
+                        throw new Error(`以下地號查無資料：${notFoundList.join(', ')}`);
+                    }
+                }
+
+                // 顯示結果
+                displayResults(data);
+
+            } catch (error) {
+                console.error('查詢錯誤:', error);
+                showError(error.message || '查詢過程中發生錯誤，請稍後再試');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // 格式化地號輸入
+        function formatLandInput(input) {
+            const replacements = {
+                "台北": "臺北",
+                "台中": "臺中",
+                "台南": "臺南",
+                "台東": "臺東"
+            };
+
+            Object.keys(replacements).forEach(key => {
+                input = input.replace(new RegExp(key, 'g'), replacements[key]);
+            });
+
+            return input.replace(/地號$/, '號').trim();
+        }
+
+        // 格式化地號顯示
+        function formatLandNumber(landNumber) {
+            const landStr = landNumber.toString().padStart(8, '0');
+            const motherNumber = parseInt(landStr.slice(0, 4), 10);
+            const childNumber = parseInt(landStr.slice(4), 10);
+            return childNumber === 0 ? `${motherNumber}` : `${motherNumber}-${childNumber}`;
+        }
+
+        // ==================== 顯示結果 ====================
+        function displayResults(data) {
+            // 清空地圖圖層
+            firstMarkerGroup.clearLayers();
+            otherMarkerGroup.clearLayers();
+            firstShapeGroup.clearLayers();
+            otherShapeGroup.clearLayers();
+
+            // 建立表格
+            let tableHTML = `
+                <table class="results-table">
+                    <thead>
+                        <tr>
+                            <th>編號</th>
+                            <th>縣市</th>
+                            <th>鄉鎮</th>
+                            <th>地段</th>
+                            <th>地號</th>
+                            <th>經緯度座標</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            let otherCounter = marker2StartNum;
+
+            data.features.forEach((feature, index) => {
+                const props = feature.properties;
+                const lat = props.ycenter.toFixed(6);
+                const lng = props.xcenter.toFixed(6);
+                const coords = `${lat},${lng}`;
+                const googleMapsLink = `https://www.google.com/maps/place/${coords}`;
+                const formattedLandNumber = formatLandNumber(props["地號"]);
+
+                // 添加表格行
+                const label = index === 0 ? marker1Text : `${marker2Text}${otherCounter}`;
+                if (index > 0) otherCounter++;
+
+                tableHTML += `
+                    <tr>
+                        <td><strong>${label}</strong></td>
+                        <td>${props["縣市"]}</td>
+                        <td>${props["鄉鎮"]}</td>
+                        <td>${props["地段"]}</td>
+                        <td>${formattedLandNumber}</td>
+                        <td><a href="${googleMapsLink}" target="_blank">${coords}</a></td>
+                    </tr>
+                `;
+
+                // 創建標記
+                const marker = createMarker(lat, lng, label, index === 0);
+                const geoJsonLayer = L.geoJSON(feature);
+
+                if (index === 0) {
+                    firstMarkerGroup.addLayer(marker);
+                    firstShapeGroup.addLayer(geoJsonLayer);
+                } else {
+                    otherMarkerGroup.addLayer(marker);
+                    otherShapeGroup.addLayer(geoJsonLayer);
+                }
+            });
+
+            tableHTML += '</tbody></table>';
+
+            // 顯示結果
+            document.getElementById('resultsContainer').innerHTML = tableHTML;
+            document.getElementById('resultsSection').style.display = 'block';
+            document.getElementById('toggleIcon').classList.remove('collapsed');
+
+            // 調整地圖視野
+            const bounds = L.latLngBounds([]);
+            firstShapeGroup.eachLayer(layer => bounds.extend(layer.getBounds()));
+            otherShapeGroup.eachLayer(layer => bounds.extend(layer.getBounds()));
+            map.fitBounds(bounds);
+        }
+
+        // 創建標記
+        function createMarker(lat, lng, text, isFirst) {
+            const bgColor = isFirst ? marker1Color : marker2Color;
+            const textColor = 'white';
+            let markerIcon;
+
+            switch(currentMarkerStyle) {
+                case 'text':
+                    // 文字標籤樣式
+                    const textPadding = Math.max(8, markerTextSize * 0.5);
+                    const textHeight = Math.max(35, markerTextSize * 2.2);
+                    markerIcon = L.divIcon({
+                        className: 'custom-marker',
+                        html: `<div style="
+                            background: linear-gradient(135deg, ${bgColor} 0%, ${bgColor}dd 100%);
+                            color: ${textColor};
+                            border-radius: 10px;
+                            padding: ${textPadding}px 12px;
+                            text-align: center;
+                            font-size: ${markerTextSize}px;
+                            font-weight: bold;
+                            white-space: nowrap;
+                            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+                            border: 2px solid white;
+                        ">${text}</div>`,
+                        iconSize: [150, textHeight],
+                        iconAnchor: [75, textHeight / 2]
+                    });
+                    break;
+
+                case 'pin':
+                    // 標準 Marker（使用彩色 Marker 圖片）
+                    const pinColor = bgColor.replace('#', '');
+                    markerIcon = L.icon({
+                        iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-${getColorName(bgColor)}.png`,
+                        shadowUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-shadow.png',
+                        iconSize: [25, 41],
+                        iconAnchor: [12, 41],
+                        popupAnchor: [1, -34],
+                        shadowSize: [41, 41]
+                    });
+                    break;
+
+                case 'pin-text':
+                    // Marker + 文字（使用自訂 SVG）
+                    const labelFontSize = Math.max(10, markerTextSize * 0.7);
+                    const labelTopOffset = -15 - (labelFontSize * 1.5);
+                    markerIcon = L.divIcon({
+                        className: 'custom-marker',
+                        html: `<div style="position: relative; width: 30px; height: 45px;">
+                            <svg width="30" height="45" viewBox="0 0 30 45" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
+                                <path d="M15,0 C6.716,0 0,6.716 0,15 C0,26.25 15,45 15,45 C15,45 30,26.25 30,15 C30,6.716 23.284,0 15,0 Z"
+                                      fill="${bgColor}" stroke="white" stroke-width="2"/>
+                                <circle cx="15" cy="15" r="8" fill="white"/>
+                            </svg>
+                            <div style="
+                                position: absolute;
+                                top: ${labelTopOffset}px;
+                                left: 50%;
+                                transform: translateX(-50%);
+                                background: ${bgColor};
+                                color: white;
+                                padding: ${Math.max(4, labelFontSize * 0.3)}px ${Math.max(8, labelFontSize * 0.5)}px;
+                                border-radius: 6px;
+                                font-size: ${labelFontSize}px;
+                                font-weight: bold;
+                                white-space: nowrap;
+                                box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                            ">${text}</div>
+                        </div>`,
+                        iconSize: [30, 45],
+                        iconAnchor: [15, 45]
+                    });
+                    break;
+
+                case 'dot':
+                    // 小圓點
+                    markerIcon = L.divIcon({
+                        className: 'custom-marker',
+                        html: `<div style="
+                            width: 16px;
+                            height: 16px;
+                            background: ${bgColor};
+                            border-radius: 50%;
+                            border: 3px solid white;
+                            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+                        "></div>`,
+                        iconSize: [16, 16],
+                        iconAnchor: [8, 8]
+                    });
+                    break;
+            }
+
+            const marker = L.marker([lat, lng], {
+                icon: markerIcon,
+                draggable: true
+            });
+
+            // 為 pin 樣式添加 tooltip
+            if (currentMarkerStyle === 'pin') {
+                marker.bindTooltip(text, {
+                    permanent: false,
+                    direction: 'top',
+                    offset: [0, -40]
+                });
+            }
+
+            return marker;
+        }
+
+        // 取得顏色名稱（用於 Marker 圖片）
+        function getColorName(hexColor) {
+            const colorMap = {
+                '#ef5350': 'red',
+                '#42a5f5': 'blue',
+                '#66bb6a': 'green',
+                '#ffa726': 'orange',
+                '#ab47bc': 'violet'
+            };
+            return colorMap[hexColor] || 'blue';
+        }
+
+        // ==================== 地圖控制 ====================
+        function toggleMarkers() {
+            if (map.hasLayer(firstMarkerGroup) && map.hasLayer(otherMarkerGroup)) {
+                map.removeLayer(firstMarkerGroup);
+                map.removeLayer(otherMarkerGroup);
+            } else {
+                map.addLayer(firstMarkerGroup);
+                map.addLayer(otherMarkerGroup);
+            }
+        }
+
+        function toggleShapes() {
+            if (map.hasLayer(firstShapeGroup) && map.hasLayer(otherShapeGroup)) {
+                map.removeLayer(firstShapeGroup);
+                map.removeLayer(otherShapeGroup);
+            } else {
+                map.addLayer(firstShapeGroup);
+                map.addLayer(otherShapeGroup);
+            }
+        }
+
+        function toggleFirstMarker() {
+            if (map.hasLayer(firstMarkerGroup)) {
+                map.removeLayer(firstMarkerGroup);
+                map.removeLayer(firstShapeGroup);
+            } else {
+                map.addLayer(firstMarkerGroup);
+                map.addLayer(firstShapeGroup);
+            }
+        }
+
+        function toggleResults() {
+            const container = document.getElementById('resultsContainer');
+            const icon = document.getElementById('toggleIcon');
+
+            if (container.style.display === 'none') {
+                container.style.display = 'block';
+                icon.classList.remove('collapsed');
+            } else {
+                container.style.display = 'none';
+                icon.classList.add('collapsed');
+            }
+        }
+
+        // ==================== 輔助函數 ====================
+        function fillRandomExample() {
+            const randomIndex = Math.floor(Math.random() * sampleSets.length);
+            document.getElementById('landInput').value = sampleSets[randomIndex];
+        }
+
+        function showLoading(show) {
+            const queryBtn = document.getElementById('queryBtn');
+            if (show) {
+                queryBtn.disabled = true;
+                queryBtn.innerHTML = '<div class="spinner"></div><span>查詢中...</span>';
+            } else {
+                queryBtn.disabled = false;
+                queryBtn.innerHTML = '<span>🔍 查詢並顯示地圖</span>';
+            }
+        }
+
+        function showError(message) {
+            const errorContainer = document.getElementById('errorContainer');
+            errorContainer.innerHTML = `<div class="error-message">${message}</div>`;
+        }
+
+        function clearError() {
+            document.getElementById('errorContainer').innerHTML = '';
+        }
+    </script>
+</body>
+</html>
