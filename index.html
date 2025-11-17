@@ -962,6 +962,9 @@
         // 儲存當前查詢的土地資料（用於截圖檔名）
         let currentLandData = null;
 
+        // 儲存所有標籤的邊界框，用於碰撞偵測
+        let labelBounds = [];
+
         // 引導線設定
         let leaderLineWidth = 4; // 引導線粗細（1-5）
         let leaderLineColor = '#333333'; // 引導線顏色
@@ -1199,6 +1202,9 @@
         function updateAllMarkers() {
             const markers = [];
 
+            // 清空標籤邊界框陣列，重新計算碰撞偵測
+            labelBounds = [];
+
             // 收集所有標記資訊
             firstMarkerGroup.eachLayer(marker => {
                 let latLng;
@@ -1336,6 +1342,9 @@
             firstShapeGroup.clearLayers();
             otherShapeGroup.clearLayers();
 
+            // 清空標籤邊界框陣列，重新計算碰撞偵測
+            labelBounds = [];
+
             // 建立表格
             let tableHTML = `
                 <table class="results-table">
@@ -1413,6 +1422,77 @@
             firstShapeGroup.eachLayer(layer => bounds.extend(layer.getBounds()));
             otherShapeGroup.eachLayer(layer => bounds.extend(layer.getBounds()));
             map.fitBounds(bounds);
+        }
+
+        // ==================== 標籤碰撞偵測函數 ====================
+
+        // 檢查兩個矩形是否重疊
+        function isOverlapping(bounds1, bounds2) {
+            return !(bounds1.maxLat < bounds2.minLat ||
+                    bounds1.minLat > bounds2.maxLat ||
+                    bounds1.maxLng < bounds2.minLng ||
+                    bounds1.minLng > bounds2.maxLng);
+        }
+
+        // 計算標籤的邊界框（經緯度範圍）
+        function calculateLabelBounds(centerLat, centerLng, offsetLat, offsetLng) {
+            const labelLat = centerLat + offsetLat;
+            const labelLng = centerLng + offsetLng;
+
+            // 假設標籤寬度和高度對應的經緯度範圍
+            // 這些值根據文字大小調整
+            const latRange = 0.0004 * (markerTextSize / 16); // 根據文字大小調整
+            const lngRange = 0.0008 * (markerTextSize / 16);
+
+            return {
+                minLat: labelLat - latRange,
+                maxLat: labelLat + latRange,
+                minLng: labelLng - lngRange,
+                maxLng: labelLng + lngRange,
+                centerLat: labelLat,
+                centerLng: labelLng
+            };
+        }
+
+        // 找到不重疊的偏移方向
+        function findNonOverlappingOffset(centerLat, centerLng) {
+            // 定義多個可能的偏移方向（順序：右上、右下、左上、左下、右、左、上、下）
+            const offsetDirections = [
+                { lat: 0.0008, lng: 0.0008 },   // 右上（預設）
+                { lat: -0.0008, lng: 0.0008 },  // 右下
+                { lat: 0.0008, lng: -0.0008 },  // 左上
+                { lat: -0.0008, lng: -0.0008 }, // 左下
+                { lat: 0, lng: 0.0012 },        // 右
+                { lat: 0, lng: -0.0012 },       // 左
+                { lat: 0.0012, lng: 0 },        // 上
+                { lat: -0.0012, lng: 0 }        // 下
+            ];
+
+            // 嘗試每個方向
+            for (const offset of offsetDirections) {
+                const bounds = calculateLabelBounds(centerLat, centerLng, offset.lat, offset.lng);
+
+                // 檢查是否與現有標籤重疊
+                let hasOverlap = false;
+                for (const existingBounds of labelBounds) {
+                    if (isOverlapping(bounds, existingBounds)) {
+                        hasOverlap = true;
+                        break;
+                    }
+                }
+
+                // 如果不重疊，使用這個方向
+                if (!hasOverlap) {
+                    labelBounds.push(bounds); // 記錄這個標籤的邊界框
+                    return { lat: offset.lat, lng: offset.lng };
+                }
+            }
+
+            // 如果所有方向都重疊，使用預設方向並增加距離
+            const defaultOffset = { lat: 0.0015, lng: 0.0015 };
+            const bounds = calculateLabelBounds(centerLat, centerLng, defaultOffset.lat, defaultOffset.lng);
+            labelBounds.push(bounds);
+            return defaultOffset;
         }
 
         // 創建標記
@@ -1514,8 +1594,10 @@
                 case 'leader-line': {
                     // 引導線標籤樣式：固定點 + 可拖曳文字 + 連接線
                     const centerPos = L.latLng(lat, lng);
-                    const offsetDist = 0.0008; // 增加偏移距離，避免文字蓋住中心點
-                    const labelPos = L.latLng(lat + offsetDist, lng + offsetDist);
+
+                    // 自動找到不重疊的偏移方向
+                    const offset = findNonOverlappingOffset(lat, lng);
+                    const labelPos = L.latLng(lat + offset.lat, lng + offset.lng);
 
                     // 創建固定中心點
                     const dotIcon = L.divIcon({
