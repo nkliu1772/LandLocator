@@ -889,9 +889,9 @@
                     </div>
 
                     <label style="font-size: 0.85rem; color: #666; margin-top: 0.75rem; margin-bottom: 0.5rem; display: block;">
-                        透明度: <span id="lineOpacityValue" style="color: #3CBBC6; font-weight: 600;">70%</span>
+                        透明度: <span id="lineOpacityValue" style="color: #3CBBC6; font-weight: 600;">20%</span>
                     </label>
-                    <input type="range" class="settings-input" id="lineOpacitySlider" min="0" max="70" value="70" step="10" style="width: 100%;">
+                    <input type="range" class="settings-input" id="lineOpacitySlider" min="0" max="70" value="20" step="10" style="width: 100%;">
                 </div>
 
                 <button class="settings-submit-btn" id="settingsSubmitBtn">套用設定</button>
@@ -962,7 +962,7 @@
         // 引導線設定
         let leaderLineWidth = 4; // 引導線粗細（1-5）
         let leaderLineColor = '#333333'; // 引導線顏色
-        let leaderLineOpacity = 0.3; // 引導線不透明度（opacity）
+        let leaderLineOpacity = 0.8; // 引導線不透明度（opacity，透明度 20% = 不透明度 80%）
 
         // 範例資料集
         const sampleSets = [
