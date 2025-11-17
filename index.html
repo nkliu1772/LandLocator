@@ -965,6 +965,15 @@
         // 儲存所有標籤的邊界框，用於碰撞偵測
         let labelBounds = [];
 
+        // 儲存所有引導線標籤，用於磁力排斥效果
+        let allLeaderLineMarkers = [];
+
+        // 磁力排斥參數（調整為更溫和的設定）
+        const REPULSION_STRENGTH = 0.00003; // 排斥力強度（降低）
+        const REPULSION_DISTANCE = 0.002;   // 排斥力作用距離（縮短）
+        const DAMPING = 0.3;                 // 阻尼係數（增加阻尼，減速更快）
+        const MIN_DISTANCE = 0.0006;         // 最小距離閾值
+
         // 引導線設定
         let leaderLineWidth = 4; // 引導線粗細（1-5）
         let leaderLineColor = '#333333'; // 引導線顏色
@@ -1205,6 +1214,9 @@
             // 清空標籤邊界框陣列，重新計算碰撞偵測
             labelBounds = [];
 
+            // 清空引導線標籤陣列
+            allLeaderLineMarkers = [];
+
             // 收集所有標記資訊
             firstMarkerGroup.eachLayer(marker => {
                 let latLng;
@@ -1252,6 +1264,11 @@
                     otherMarkerGroup.addLayer(newMarker);
                 }
             });
+
+            // 暫時關閉磁力排斥，使用碰撞偵測即可
+            // setTimeout(() => {
+            //     applyMagneticRepulsion(10);
+            // }, 100);
         }
 
         // ==================== 查詢處理 ====================
@@ -1345,6 +1362,9 @@
             // 清空標籤邊界框陣列，重新計算碰撞偵測
             labelBounds = [];
 
+            // 清空引導線標籤陣列
+            allLeaderLineMarkers = [];
+
             // 建立表格
             let tableHTML = `
                 <table class="results-table">
@@ -1422,6 +1442,11 @@
             firstShapeGroup.eachLayer(layer => bounds.extend(layer.getBounds()));
             otherShapeGroup.eachLayer(layer => bounds.extend(layer.getBounds()));
             map.fitBounds(bounds);
+
+            // 暫時關閉磁力排斥，使用碰撞偵測即可
+            // setTimeout(() => {
+            //     applyMagneticRepulsion(10);
+            // }, 100);
         }
 
         // ==================== 標籤碰撞偵測函數 ====================
@@ -1493,6 +1518,170 @@
             const bounds = calculateLabelBounds(centerLat, centerLng, defaultOffset.lat, defaultOffset.lng);
             labelBounds.push(bounds);
             return defaultOffset;
+        }
+
+        // ==================== 磁力排斥演算法 ====================
+
+        // 計算兩點之間的距離
+        function calculateDistance(lat1, lng1, lat2, lng2) {
+            const dLat = lat2 - lat1;
+            const dLng = lng2 - lng1;
+            return Math.sqrt(dLat * dLat + dLng * dLng);
+        }
+
+        // 計算排斥力
+        function calculateRepulsionForce(marker1, marker2) {
+            const pos1 = marker1.labelMarker.getLatLng();
+            const pos2 = marker2.labelMarker.getLatLng();
+
+            const distance = calculateDistance(pos1.lat, pos1.lng, pos2.lat, pos2.lng);
+
+            // 如果距離太遠，不施加排斥力
+            if (distance > REPULSION_DISTANCE || distance < 0.00001) {
+                return { lat: 0, lng: 0 };
+            }
+
+            // 排斥力大小與距離成反比（距離越近，力越大）
+            const forceMagnitude = REPULSION_STRENGTH / (distance * distance);
+
+            // 計算力的方向（從 marker2 指向 marker1）
+            const direction = {
+                lat: (pos1.lat - pos2.lat) / distance,
+                lng: (pos1.lng - pos2.lng) / distance
+            };
+
+            return {
+                lat: direction.lat * forceMagnitude,
+                lng: direction.lng * forceMagnitude
+            };
+        }
+
+        // 應用磁力排斥到所有標籤
+        function applyMagneticRepulsion(iterations = 20) {
+            if (allLeaderLineMarkers.length <= 1) return;
+
+            for (let iter = 0; iter < iterations; iter++) {
+                const forces = [];
+
+                // 為每個標籤初始化力為 0
+                allLeaderLineMarkers.forEach(() => {
+                    forces.push({ lat: 0, lng: 0 });
+                });
+
+                // 計算每對標籤之間的排斥力
+                for (let i = 0; i < allLeaderLineMarkers.length; i++) {
+                    for (let j = i + 1; j < allLeaderLineMarkers.length; j++) {
+                        const force = calculateRepulsionForce(
+                            allLeaderLineMarkers[i],
+                            allLeaderLineMarkers[j]
+                        );
+
+                        // 對標籤 i 施加排斥力
+                        forces[i].lat += force.lat;
+                        forces[i].lng += force.lng;
+
+                        // 對標籤 j 施加相反的排斥力
+                        forces[j].lat -= force.lat;
+                        forces[j].lng -= force.lng;
+                    }
+                }
+
+                // 應用力到標籤位置
+                allLeaderLineMarkers.forEach((marker, index) => {
+                    const currentPos = marker.labelMarker.getLatLng();
+                    const centerPos = marker.centerLatLng;
+
+                    // 計算新位置
+                    let newLat = currentPos.lat + forces[index].lat * DAMPING;
+                    let newLng = currentPos.lng + forces[index].lng * DAMPING;
+
+                    // 限制標籤不能太靠近中心點
+                    const distToCenter = calculateDistance(centerPos.lat, centerPos.lng, newLat, newLng);
+                    if (distToCenter < MIN_DISTANCE) {
+                        const scale = MIN_DISTANCE / distToCenter;
+                        newLat = centerPos.lat + (newLat - centerPos.lat) * scale;
+                        newLng = centerPos.lng + (newLng - centerPos.lng) * scale;
+                    }
+
+                    // 更新標籤位置
+                    marker.labelMarker.setLatLng([newLat, newLng]);
+
+                    // 更新引導線
+                    marker.leaderLine.setLatLngs([centerPos, [newLat, newLng]]);
+                });
+            }
+        }
+
+        // 拖曳時的即時排斥效果
+        function setupDragRepulsion(marker) {
+            let isDragging = false;
+            let animationFrame = null;
+
+            marker.labelMarker.on('dragstart', function() {
+                isDragging = true;
+                startRepulsionAnimation();
+            });
+
+            marker.labelMarker.on('drag', function(e) {
+                const newPos = e.target.getLatLng();
+                marker.leaderLine.setLatLngs([marker.centerLatLng, newPos]);
+            });
+
+            marker.labelMarker.on('dragend', function() {
+                isDragging = false;
+                if (animationFrame) {
+                    cancelAnimationFrame(animationFrame);
+                    animationFrame = null;
+                }
+            });
+
+            function startRepulsionAnimation() {
+                if (!isDragging) return;
+
+                // 計算並應用排斥力
+                const forces = [];
+                allLeaderLineMarkers.forEach(() => {
+                    forces.push({ lat: 0, lng: 0 });
+                });
+
+                for (let i = 0; i < allLeaderLineMarkers.length; i++) {
+                    for (let j = i + 1; j < allLeaderLineMarkers.length; j++) {
+                        const force = calculateRepulsionForce(
+                            allLeaderLineMarkers[i],
+                            allLeaderLineMarkers[j]
+                        );
+
+                        forces[i].lat += force.lat;
+                        forces[i].lng += force.lng;
+                        forces[j].lat -= force.lat;
+                        forces[j].lng -= force.lng;
+                    }
+                }
+
+                // 只更新非正在拖曳的標籤
+                allLeaderLineMarkers.forEach((m, index) => {
+                    if (m.labelMarker !== marker.labelMarker) {
+                        const currentPos = m.labelMarker.getLatLng();
+                        const centerPos = m.centerLatLng;
+
+                        let newLat = currentPos.lat + forces[index].lat * DAMPING * 0.5;
+                        let newLng = currentPos.lng + forces[index].lng * DAMPING * 0.5;
+
+                        const distToCenter = calculateDistance(centerPos.lat, centerPos.lng, newLat, newLng);
+                        if (distToCenter < MIN_DISTANCE) {
+                            const scale = MIN_DISTANCE / distToCenter;
+                            newLat = centerPos.lat + (newLat - centerPos.lat) * scale;
+                            newLng = centerPos.lng + (newLng - centerPos.lng) * scale;
+                        }
+
+                        m.labelMarker.setLatLng([newLat, newLng]);
+                        m.leaderLine.setLatLngs([centerPos, [newLat, newLng]]);
+                    }
+                });
+
+                // 繼續動畫
+                animationFrame = requestAnimationFrame(startRepulsionAnimation);
+            }
         }
 
         // 創建標記
@@ -1627,17 +1816,24 @@
                         dashArray: '5, 8'
                     });
 
-                    // 監聽拖曳更新連接線
-                    labelMarker.on('drag', function(e) {
-                        line.setLatLngs([centerPos, e.target.getLatLng()]);
-                    });
-
                     // 創建群組
                     const group = L.layerGroup([line, centerDot, labelMarker]);
                     group.centerLatLng = centerPos;
                     group.labelMarker = labelMarker;
                     group.centerDot = centerDot;
                     group.leaderLine = line;
+
+                    // 加入到磁力排斥陣列
+                    allLeaderLineMarkers.push(group);
+
+                    // 監聽拖曳更新連接線（不使用磁力排斥）
+                    labelMarker.on('drag', function(e) {
+                        line.setLatLngs([centerPos, e.target.getLatLng()]);
+                    });
+
+                    // 暫時關閉拖曳時的磁力排斥效果
+                    // setupDragRepulsion(group);
+
                     return group;
                 }
             }
